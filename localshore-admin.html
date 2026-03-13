@@ -1,0 +1,1789 @@
+<!DOCTYPE html>
+<html lang                                                                        = "en">
+<head>
+<meta charset                                                                     = "UTF-8">
+<meta name                                                                        = "viewport" content="width=device-width,initial-scale=1.0">
+<title>LocalShore — Admin Console</title>
+<link rel                                                                         = "preconnect" href="https://fonts.googleapis.com">
+<link href                                                                        = "https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600;700;800;900&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel                                                                         = "stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src                                                                       = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src                                                                       = "https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src                                                                       = "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src                                                                       = "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg                                                                            : #07080F;--bg2:#0D0F1A;--bg3:#131627;--bg4:#1A1E33;
+  --border                                                                        : #1F2440;--border2:#252A4A;
+  --blue                                                                          : #2563EB;--blue-l:#3B82F6;--blue-pale:#1E3A8A22;
+  --orange                                                                        : #F59E0B;--orange-l:#FCD34D;--orange-pale:#F59E0B18;
+  --green                                                                         : #10B981;--green-pale:#10B98118;
+  --red                                                                           : #EF4444;--red-pale:#EF444418;
+  --purple                                                                        : #8B5CF6;--purple-pale:#8B5CF618;
+  --cyan                                                                          : #06B6D4;--cyan-pale:#06B6D418;
+  --teal                                                                          : #14B8A6;--teal-pale:#14B8A618;
+  --white                                                                         : #F1F5FF;--mid:#6B7280;--dim:#374151;
+  --disp                                                                          : 'Unbounded',monospace;--body:'DM Sans',system-ui,sans-serif;
+  --r                                                                             : 14px;--sidebar:262px;
+}
+html{scrollbar-width                                                              : thin;scrollbar-color:var(--border2) var(--bg)}
+body{font-family                                                                  : var(--body);background:var(--bg);color:var(--white);min-height:100vh;display:flex;overflow-x:hidden}
+
+/* ══════════════════════════════════════
+   LOGIN SCREEN
+══════════════════════════════════════ */
+#login-screen{
+  position                                                                        : fixed;inset:0;z-index:9999;
+  background                                                                      : var(--bg);
+  display                                                                         : flex;align-items:center;justify-content:center;
+  overflow                                                                        : hidden;
+}
+#login-screen.hidden{display:none}
+
+/* Animated grid background */
+.login-grid{
+  position                                                                        : absolute;inset:0;
+  background-image                                                                : 
+    linear-gradient(rgba(37,99,235,.06) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(37,99,235,.06) 1px,transparent 1px);
+  background-size                                                                 : 48px 48px;
+  pointer-events                                                                  : none;
+  animation                                                                       : gridShift 20s linear infinite;
+}
+@keyframes gridShift{from{background-position                                     : 0 0}to{background-position:48px 48px}}
+
+/* Glows */
+.login-glow-1{
+  position                                                                        : absolute;top:-200px;left:-200px;
+  width                                                                           : 700px;height:700px;
+  background                                                                      : radial-gradient(circle,rgba(37,99,235,.12) 0%,transparent 60%);
+  pointer-events                                                                  : none;animation:glowPulse 4s ease-in-out infinite;
+}
+.login-glow-2{
+  position                                                                        : absolute;bottom:-200px;right:-200px;
+  width                                                                           : 600px;height:600px;
+  background                                                                      : radial-gradient(circle,rgba(245,158,11,.1) 0%,transparent 60%);
+  pointer-events                                                                  : none;animation:glowPulse 4s ease-in-out infinite 2s;
+}
+@keyframes glowPulse{0%,100%{opacity                                              : .6;transform:scale(1)}50%{opacity:1;transform:scale(1.08)}}
+
+/* Floating orbs */
+.login-orb{
+  position                                                                        : absolute;border-radius:50%;
+  opacity                                                                         : 0.07;pointer-events:none;
+  animation                                                                       : orbFloat 8s ease-in-out infinite;
+}
+.login-orb:nth-child(1){width:120px;height:120px;background:var(--blue);top:15%;left:8%;animation-delay:0s}
+.login-orb:nth-child(2){width:70px;height:70px;background:var(--orange);top:70%;left:15%;animation-delay:2s}
+.login-orb:nth-child(3){width:90px;height:90px;background:var(--teal);top:20%;right:10%;animation-delay:1s}
+.login-orb:nth-child(4){width:50px;height:50px;background:var(--purple);bottom:20%;right:20%;animation-delay:3s}
+@keyframes orbFloat{0%,100%{transform                                             : translateY(0) scale(1)}50%{transform:translateY(-24px) scale(1.05)}}
+
+/* Login card */
+.login-card{
+  position                                                                        : relative;z-index:1;
+  width                                                                           : 420px;max-width:95vw;
+  background                                                                      : rgba(13,15,26,.85);
+  border                                                                          : 1px solid rgba(37,99,235,.2);
+  border-radius                                                                   : 24px;
+  padding                                                                         : 40px 36px 36px;
+  backdrop-filter                                                                 : blur(20px);
+  box-shadow                                                                      : 
+    0 0 0 1px rgba(255,255,255,.03),
+    0 24px 80px rgba(0,0,0,.6),
+    0 0 60px rgba(37,99,235,.08);
+  animation                                                                       : cardIn .6s cubic-bezier(.34,1.2,.64,1);
+}
+@keyframes cardIn{from{opacity                                                    : 0;transform:translateY(24px) scale(.97)}to{opacity:1;transform:translateY(0) scale(1)}}
+
+.login-badge{
+  display                                                                         : inline-flex;align-items:center;gap:8px;
+  background                                                                      : rgba(37,99,235,.1);
+  border                                                                          : 1px solid rgba(37,99,235,.25);
+  border-radius                                                                   : 100px;padding:5px 14px 5px 10px;
+  font-size                                                                       : .62rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+  color                                                                           : var(--blue-l);margin-bottom:28px;
+}
+.login-badge-dot{width                                                            : 6px;height:6px;border-radius:50%;background:var(--blue-l);animation:badgePulse 1.5s ease-in-out infinite}
+@keyframes badgePulse{0%,100%{opacity                                             : 1}50%{opacity:.3}}
+
+.login-logo-row{display                                                           : flex;align-items:center;gap:12px;margin-bottom:6px}
+.login-logo-icon{
+  width                                                                           : 48px;height:48px;
+  background                                                                      : linear-gradient(135deg,var(--blue),var(--orange));
+  border-radius                                                                   : 14px;
+  display                                                                         : flex;align-items:center;justify-content:center;
+  font-family                                                                     : var(--disp);font-size:.7rem;font-weight:900;color:#fff;
+  box-shadow                                                                      : 0 6px 20px rgba(37,99,235,.4);
+}
+.login-logo-text{font-family                                                      : var(--disp);font-size:1.05rem;font-weight:900;letter-spacing:-.03em;line-height:1.1}
+.login-logo-text .s{color                                                         : var(--orange)}
+.login-logo-sub{font-size                                                         : .52rem;color:var(--mid);font-weight:600;letter-spacing:.1em;text-transform:uppercase;margin-top:1px}
+.login-headline{font-family                                                       : var(--disp);font-size:1.4rem;font-weight:900;letter-spacing:-.04em;line-height:1.15;margin-bottom:6px;margin-top:20px}
+.login-headline span{color                                                        : var(--orange)}
+.login-sub{font-size                                                              : .8rem;color:var(--mid);line-height:1.6;margin-bottom:28px}
+
+/* Form */
+.lf-group{display                                                                 : flex;flex-direction:column;gap:5px;margin-bottom:14px}
+.lf-label{font-size                                                               : .6rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--mid)}
+.lf-input-wrap{position                                                           : relative}
+.lf-input{
+  width                                                                           : 100%;padding:11px 40px 11px 14px;
+  background                                                                      : rgba(255,255,255,.04);
+  border                                                                          : 1px solid var(--border2);
+  border-radius                                                                   : 10px;
+  font-family                                                                     : var(--body);font-size:.85rem;color:var(--white);
+  outline                                                                         : none;transition:all .2s;
+}
+.lf-input:focus{border-color:var(--blue-l);background:rgba(37,99,235,.06);box-shadow:0 0 0 3px rgba(37,99,235,.12)}
+.lf-input::placeholder{color:var(--dim)}
+.lf-input-icon{
+  position                                                                        : absolute;right:13px;top:50%;transform:translateY(-50%);
+  font-size                                                                       : .88rem;color:var(--dim);pointer-events:none;
+  transition                                                                      : color .2s;
+}
+.lf-input:focus+.lf-input-icon{color:var(--blue-l)}
+.lf-eye{
+  position                                                                        : absolute;right:13px;top:50%;transform:translateY(-50%);
+  font-size                                                                       : .85rem;color:var(--dim);cursor:pointer;
+  background                                                                      : none;border:none;padding:2px;transition:color .2s;
+}
+.lf-eye:hover{color:var(--white)}
+
+/* Error */
+.login-err{
+  display                                                                         : none;
+  background                                                                      : rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.3);
+  color                                                                           : #FCA5A5;border-radius:10px;padding:10px 14px;
+  font-size                                                                       : .78rem;font-weight:500;margin-bottom:14px;
+  align-items                                                                     : center;gap:8px;
+}
+.login-err.show{display                                                           : flex}
+
+/* Submit btn */
+.login-btn{
+  width                                                                           : 100%;padding:13px;
+  background                                                                      : linear-gradient(135deg,var(--blue),#1d4ed8);
+  border                                                                          : none;border-radius:10px;
+  font-family                                                                     : var(--disp);font-size:.72rem;font-weight:700;
+  color                                                                           : #fff;letter-spacing:.02em;cursor:pointer;
+  transition                                                                      : all .2s;
+  box-shadow                                                                      : 0 6px 20px rgba(37,99,235,.35);
+  display                                                                         : flex;align-items:center;justify-content:center;gap:8px;
+  margin-top                                                                      : 4px;
+}
+.login-btn:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 10px 28px rgba(37,99,235,.45);filter:brightness(1.1)}
+.login-btn:active:not(:disabled){transform:scale(.98)}
+.login-btn:disabled{opacity:.6;cursor:not-allowed}
+
+.login-footer{
+  text-align                                                                      : center;margin-top:20px;
+  font-size                                                                       : .68rem;color:var(--dim);
+  display                                                                         : flex;align-items:center;justify-content:center;gap:8px;
+}
+.login-footer::before,.login-footer::after{content:'';flex:1;height:1px;background:var(--border)}
+.spin{display                                                                     : inline-block;width:13px;height:13px;border:2px solid rgba(255,255,255,.2);border-top-color:#fff;border-radius:50%;animation:sp .6s linear infinite}
+@keyframes sp{to{transform                                                        : rotate(360deg)}}
+
+/* Security chip */
+.security-chip{
+  display                                                                         : flex;align-items:center;gap:6px;justify-content:center;
+  margin-top                                                                      : 16px;font-size:.62rem;color:var(--dim);
+}
+.security-chip span{color                                                         : var(--green);font-size:.7rem}
+
+/* ══════════════════════════════════════
+   ADMIN CONSOLE (hidden until logged in)
+══════════════════════════════════════ */
+#admin-app{display:none;width:100%;min-height:100vh}
+#admin-app.visible{display:flex}
+
+/* SIDEBAR */
+.sidebar{width                                                                    : var(--sidebar);background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:50;overflow-y:auto;scrollbar-width:none}
+.sidebar::-webkit-scrollbar{display:none}
+.sb-logo{padding                                                                  : 18px 16px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
+.sb-logo-icon{width                                                               : 34px;height:34px;background:linear-gradient(135deg,var(--blue),var(--orange));border-radius:10px;display:flex;align-items:center;justify-content:center;font-family:var(--disp);font-size:.58rem;font-weight:900;color:#fff;flex-shrink:0}
+.sb-logo-text{font-family                                                         : var(--disp);font-size:.72rem;font-weight:800;letter-spacing:-.02em;line-height:1.2}
+.sb-logo-text span{color                                                          : var(--orange)}
+.sb-logo-sub{font-size                                                            : .52rem;color:var(--mid);font-weight:500;letter-spacing:.08em;text-transform:uppercase;margin-top:1px}
+.sb-sec{padding                                                                   : 14px 12px 4px;font-size:.5rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--dim)}
+.sb-item{display                                                                  : flex;align-items:center;gap:9px;padding:8px 12px;border-radius:9px;cursor:pointer;border:none;background:none;font-family:var(--body);font-size:.8rem;font-weight:500;color:var(--mid);width:100%;text-align:left;transition:all .15s;margin-bottom:1px;position:relative}
+.sb-item:hover{background:var(--bg3);color:var(--white)}
+.sb-item.active{background                                                        : linear-gradient(90deg,var(--blue-pale),transparent);color:var(--blue-l);font-weight:600}
+.sb-item.active::before{content:'';position:absolute;left:0;top:22%;bottom:22%;width:2px;background:var(--blue-l);border-radius:2px}
+.sb-ico{width                                                                     : 15px;text-align:center;font-size:.82rem;flex-shrink:0}
+.sb-badge{margin-left                                                             : auto;font-size:.56rem;font-weight:700;background:var(--red);color:#fff;padding:2px 6px;border-radius:30px;min-width:17px;text-align:center;animation:pulse 2s infinite}
+.sb-badge.warn{background                                                         : var(--orange);color:#000}
+.sb-badge.green{background                                                        : var(--green);color:#fff;animation:none}
+.sb-bottom{margin-top                                                             : auto;padding:11px 10px;border-top:1px solid var(--border)}
+.admin-chip{display                                                               : flex;align-items:center;gap:9px;padding:8px 10px;background:var(--bg3);border-radius:10px}
+.admin-av{width                                                                   : 30px;height:30px;border-radius:8px;background:linear-gradient(135deg,var(--blue),var(--purple));display:flex;align-items:center;justify-content:center;font-family:var(--disp);font-weight:800;font-size:.68rem;color:#fff;flex-shrink:0}
+.admin-name{font-size                                                             : .76rem;font-weight:600}
+.admin-role{font-size                                                             : .58rem;color:var(--orange);font-weight:700;letter-spacing:.04em;text-transform:uppercase}
+.btn-logout{background                                                            : none;border:none;color:var(--mid);cursor:pointer;font-size:.75rem;padding:4px 8px;border-radius:6px;transition:all .15s;font-family:var(--body);margin-top:6px;width:100%;text-align:left;display:flex;align-items:center;gap:6px}
+.btn-logout:hover{background:var(--red-pale);color:var(--red)}
+
+/* MAIN */
+.main{margin-left                                                                 : var(--sidebar);flex:1;display:flex;flex-direction:column;min-height:100vh;overflow-x:hidden}
+.topbar{height                                                                    : 58px;background:var(--bg2);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 22px;position:sticky;top:0;z-index:40;gap:12px}
+.tb-title{font-family                                                             : var(--disp);font-size:.76rem;font-weight:700;letter-spacing:-.02em;white-space:nowrap}
+.tb-right{display                                                                 : flex;align-items:center;gap:12px}
+.tb-time{font-size                                                                : .7rem;color:var(--mid)}
+.tb-admin-info{display                                                            : flex;align-items:center;gap:6px;font-size:.7rem;color:var(--mid);background:var(--bg3);padding:4px 10px;border-radius:30px;border:1px solid var(--border)}
+.tb-admin-info span{color                                                         : var(--orange-l);font-weight:600}
+.live-dot{width                                                                   : 7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 7px var(--green);animation:pulse 2s infinite;flex-shrink:0}
+.fb-status{font-size                                                              : .65rem;font-weight:700;padding:3px 9px;border-radius:20px;display:flex;align-items:center;gap:5px}
+.fb-status.live{background                                                        : var(--green-pale);color:var(--green)}
+.fb-status.loading{background                                                     : var(--orange-pale);color:var(--orange)}
+.fb-status.err{background                                                         : var(--red-pale);color:var(--red)}
+@keyframes pulse{0%,100%{opacity                                                  : 1;transform:scale(1)}50%{opacity:.6;transform:scale(1.3)}}
+.content{flex                                                                     : 1;overflow-y:auto;padding:22px}
+.content::-webkit-scrollbar{width:4px}
+.content::-webkit-scrollbar-thumb{background:var(--border2);border-radius:4px}
+
+/* PANELS */
+.panel{display                                                                    : none;animation:fadeUp .28s ease both}
+.panel.active{display                                                             : block}
+@keyframes fadeUp{from{opacity                                                    : 0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+
+/* PAGE HEADER */
+.ph{margin-bottom                                                                 : 20px}
+.ph-tag{font-size                                                                 : .52rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--orange);margin-bottom:5px}
+.ph-top{display                                                                   : flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px}
+.ph-title{font-family                                                             : var(--disp);font-size:1rem;font-weight:800;letter-spacing:-.03em}
+.ph-sub{font-size                                                                 : .76rem;color:var(--mid);margin-top:4px}
+
+/* STATS */
+.stat-grid{display                                                                : grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
+.stat-card{background                                                             : var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:16px;position:relative;overflow:hidden;transition:border-color .2s,transform .2s}
+.stat-card:hover{border-color:var(--border2);transform:translateY(-2px)}
+.stat-card::after{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--ac,var(--blue))}
+.stat-card.orange{--ac                                                            : var(--orange)}.stat-card.green{--ac:var(--green)}.stat-card.red{--ac:var(--red)}.stat-card.purple{--ac:var(--purple)}.stat-card.cyan{--ac:var(--cyan)}.stat-card.teal{--ac:var(--teal)}
+.sc-ic{font-size                                                                  : 1.3rem;margin-bottom:9px}
+.sc-val{font-family                                                               : var(--disp);font-size:1.5rem;font-weight:800;letter-spacing:-.04em}
+.sc-label{font-size                                                               : .66rem;color:var(--mid);margin-top:3px}
+.sc-sub{font-size                                                                 : .64rem;color:var(--orange);margin-top:5px;font-weight:600}
+
+/* CARDS */
+.card{background                                                                  : var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:18px;margin-bottom:14px}
+.card-head{display                                                                : flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px}
+.card-title{font-family                                                           : var(--disp);font-size:.74rem;font-weight:700;letter-spacing:-.02em;display:flex;align-items:center;gap:6px}
+
+/* TABLES */
+.tbl-wrap{overflow-x                                                              : auto;border-radius:10px;border:1px solid var(--border)}
+table.dt{width                                                                    : 100%;border-collapse:collapse;font-size:.78rem}
+table.dt th{background                                                            : var(--bg3);color:var(--mid);font-family:var(--disp);font-size:.56rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;padding:9px 12px;text-align:left;white-space:nowrap}
+table.dt td{padding                                                               : 9px 12px;border-top:1px solid var(--border);vertical-align:middle}
+table.dt tr:hover td{background:var(--bg3)}
+
+/* PILLS */
+.pill{display                                                                     : inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:30px;font-size:.63rem;font-weight:700;white-space:nowrap}
+.pill.green{background                                                            : var(--green-pale);color:var(--green)}.pill.red{background:var(--red-pale);color:var(--red)}
+.pill.orange{background                                                           : var(--orange-pale);color:var(--orange)}.pill.blue{background:var(--blue-pale);color:var(--blue-l)}
+.pill.purple{background                                                           : var(--purple-pale);color:var(--purple)}.pill.cyan{background:var(--cyan-pale);color:var(--cyan)}
+.pill.teal{background                                                             : var(--teal-pale);color:var(--teal)}.pill.dim{background:var(--bg3);color:var(--mid);border:1px solid var(--border)}
+
+/* BUTTONS */
+.btn{padding                                                                      : 7px 16px;border:none;border-radius:8px;font-family:var(--body);font-size:.76rem;font-weight:600;cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;gap:5px}
+.btn-p{background                                                                 : var(--blue);color:#fff}.btn-p:hover{background:var(--blue-l)}
+.btn-s{background                                                                 : var(--green);color:#fff}.btn-s:hover{filter:brightness(1.1)}
+.btn-d{background                                                                 : var(--red);color:#fff}.btn-d:hover{filter:brightness(1.1)}
+.btn-w{background                                                                 : var(--orange);color:#000;font-weight:700}.btn-w:hover{filter:brightness(1.1)}
+.btn-g{background                                                                 : var(--bg3);color:var(--white);border:1px solid var(--border)}.btn-g:hover{border-color:var(--border2)}
+.btn-t{background                                                                 : var(--teal-pale);color:var(--teal);border:1px solid var(--teal)}.btn-t:hover{background:var(--teal);color:#fff}
+.btn-sm{padding                                                                   : 5px 10px;font-size:.68rem;border-radius:6px}
+.btn-xs{padding                                                                   : 3px 8px;font-size:.63rem;border-radius:5px}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+
+/* FORMS */
+.fg{display                                                                       : flex;flex-direction:column;gap:4px;margin-bottom:10px}
+.fl{font-size                                                                     : .62rem;font-weight:700;letter-spacing:.07em;color:var(--mid);text-transform:uppercase}
+.fi{padding                                                                       : 8px 11px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;font-family:var(--body);font-size:.8rem;color:var(--white);outline:none;transition:border-color .15s;width:100%}
+.fi:focus{border-color:var(--blue-l)}
+.fi::placeholder{color:var(--dim)}
+select.fi{cursor                                                                  : pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%236B7280'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;padding-right:28px}
+.form-row{display                                                                 : grid;grid-template-columns:1fr 1fr;gap:10px}
+
+/* TOAST */
+.toast{position                                                                   : fixed;bottom:18px;right:18px;padding:9px 16px;border-radius:10px;font-size:.78rem;font-weight:600;z-index:9999;transform:translateY(60px);opacity:0;transition:all .28s;pointer-events:none;max-width:300px;line-height:1.4}
+.toast.show{transform                                                             : translateY(0);opacity:1}
+.toast.ok{background                                                              : var(--green);color:#fff;box-shadow:0 4px 20px rgba(16,185,129,.4)}
+.toast.err{background                                                             : var(--red);color:#fff;box-shadow:0 4px 20px rgba(239,68,68,.4)}
+.toast.info{background                                                            : var(--blue);color:#fff}.toast.warn{background:var(--orange);color:#000}
+
+/* MODALS */
+.overlay{position                                                                 : fixed;inset:0;background:rgba(0,0,0,.75);z-index:200;display:none;align-items:center;justify-content:center;backdrop-filter:blur(5px)}
+.overlay.show{display                                                             : flex}
+.modal{background                                                                 : var(--bg2);border:1px solid var(--border2);border-radius:18px;padding:26px;width:580px;max-width:95vw;max-height:90vh;overflow-y:auto;box-shadow:0 24px 80px rgba(0,0,0,.7);animation:fadeUp .28s ease;scrollbar-width:thin;scrollbar-color:var(--border2) transparent}
+.modal-t{font-family                                                              : var(--disp);font-size:.88rem;font-weight:800;margin-bottom:3px;letter-spacing:-.02em}
+.modal-s{font-size                                                                : .74rem;color:var(--mid);margin-bottom:18px}
+.mclose{background                                                                : none;border:none;color:var(--mid);cursor:pointer;font-size:1rem;transition:color .15s;padding:2px}
+.mclose:hover{color:var(--white)}
+
+/* MISC */
+.two-col{display                                                                  : grid;grid-template-columns:1fr 1fr;gap:14px}
+.divider{height                                                                   : 1px;background:var(--border);margin:12px 0}
+.empty-state{text-align                                                           : center;padding:36px;color:var(--mid);font-size:.82rem}
+.empty-state .ei{font-size                                                        : 2rem;margin-bottom:8px}
+.info-row{display                                                                 : flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border)}
+.info-row:last-child{border-bottom:none}
+.ir-k{font-size                                                                   : .7rem;color:var(--mid)}.ir-v{font-size:.78rem;font-weight:600}
+.filter-bar{display                                                               : flex;gap:7px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+.fc{padding                                                                       : 4px 11px;background:var(--bg3);border:1px solid var(--border);border-radius:30px;font-size:.7rem;font-weight:600;color:var(--mid);cursor:pointer;transition:all .15s}
+.fc.active,.fc:hover{background:var(--blue-pale);border-color:var(--blue);color:var(--blue-l)}
+.si{padding                                                                       : 6px 11px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;font-family:var(--body);font-size:.76rem;color:var(--white);outline:none;min-width:180px}
+.si:focus{border-color:var(--blue-l)}
+.si::placeholder{color:var(--dim)}
+.pct-bar{height                                                                   : 4px;background:var(--bg);border-radius:2px;overflow:hidden;margin-top:4px}
+.pct-fill{height                                                                  : 100%;border-radius:2px;background:linear-gradient(90deg,var(--orange),var(--orange-l));transition:width .5s ease}
+.bar-chart{display                                                                : flex;align-items:flex-end;gap:7px;height:130px;padding:0 2px}
+.bc{display                                                                       : flex;flex-direction:column;align-items:center;gap:4px;flex:1;min-width:0}
+.bv{font-size                                                                     : .56rem;color:var(--orange);font-weight:700;height:13px;text-align:center}
+.bar{width                                                                        : 100%;border-radius:4px 4px 0 0;min-height:4px;transition:height .5s ease}
+.bl{font-size                                                                     : .56rem;color:var(--mid);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;text-align:center}
+.scrollable{max-height                                                            : 320px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--border2) transparent}
+.spin-sm{display                                                                  : inline-block;width:13px;height:13px;border:2px solid var(--border);border-top-color:var(--blue-l);border-radius:50%;animation:sp .6s linear infinite;flex-shrink:0}
+@keyframes sp{to{transform                                                        : rotate(360deg)}}
+.avatar{width                                                                     : 34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-family:var(--disp);font-weight:800;font-size:.76rem;color:#fff;flex-shrink:0}
+.vcard{background                                                                 : var(--bg3);border:1px solid var(--border);border-radius:12px;padding:14px;transition:border-color .2s;margin-bottom:8px}
+.vcard:hover{border-color:var(--border2)}
+.doc-t{font-size                                                                  : .6rem;font-weight:700;padding:2px 7px;border-radius:20px;border:1px solid}
+.doc-t.ok{background                                                              : var(--green-pale);border-color:var(--green);color:var(--green)}
+.doc-t.no{background                                                              : var(--red-pale);border-color:var(--red);color:var(--red)}
+.area-card{background                                                             : var(--bg3);border:1px solid var(--border);border-radius:10px;padding:13px;text-align:center;position:relative;overflow:hidden;transition:all .2s}
+.area-card:hover{transform:translateY(-2px);border-color:var(--border2)}
+.area-card::after{content:'';position:absolute;bottom:0;left:0;right:0;height:3px;background:var(--ac,var(--orange))}
+
+/* DELIVERY PARTNER SPECIFIC */
+.dp-card{background                                                               : var(--bg2);border:1px solid var(--border);border-radius:14px;padding:16px;display:flex;gap:14px;align-items:flex-start;margin-bottom:10px;transition:all .2s;cursor:pointer;position:relative;overflow:hidden}
+.dp-card:hover{border-color:var(--border2);transform:translateY(-1px);box-shadow:0 8px 30px rgba(0,0,0,.3)}
+.dp-card.online-card{border-color                                                 : rgba(16,185,129,.3);background:linear-gradient(135deg,var(--bg2),rgba(16,185,129,.04))}
+.dp-card.online-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--green)}
+.dp-card.busy-card{border-color                                                   : rgba(245,158,11,.3);background:linear-gradient(135deg,var(--bg2),rgba(245,158,11,.04))}
+.dp-card.busy-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--orange)}
+.dp-photo{width                                                                   : 50px;height:50px;border-radius:12px;flex-shrink:0;overflow:hidden;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,var(--teal),var(--blue));font-family:var(--disp);font-weight:800;font-size:1rem;color:#fff;position:relative}
+.dp-photo img{width                                                               : 100%;height:100%;object-fit:cover;border-radius:12px}
+.dp-status-dot{position                                                           : absolute;bottom:2px;right:2px;width:11px;height:11px;border-radius:50%;border:2px solid var(--bg2)}
+.dp-status-dot.online{background                                                  : var(--green)}
+.dp-status-dot.busy{background                                                    : var(--orange);animation:pulse 1.5s infinite}
+.dp-status-dot.offline{background                                                 : var(--dim)}
+.dp-info{flex                                                                     : 1;min-width:0}
+.dp-name{font-family                                                              : var(--disp);font-size:.82rem;font-weight:700;margin-bottom:3px}
+.dp-meta{font-size                                                                : .7rem;color:var(--mid);display:flex;gap:8px;flex-wrap:wrap;margin-bottom:7px}
+.dp-active-order{background                                                       : var(--orange-pale);border:1px solid rgba(245,158,11,.3);border-radius:8px;padding:7px 10px;margin-top:6px;font-size:.7rem}
+.dp-active-order .aol{font-size                                                   : .58rem;font-weight:700;color:var(--orange);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px}
+.dp-active-order .aov{font-weight                                                 : 600;color:var(--white)}
+.dp-stats{display                                                                 : flex;gap:14px;align-items:center;flex-shrink:0;flex-direction:column;text-align:right}
+.dp-stat-item .dsv{font-family                                                    : var(--disp);font-size:.9rem;font-weight:800;color:var(--orange)}
+.dp-stat-item .dsl{font-size                                                      : .58rem;color:var(--mid);margin-top:1px}
+.live-badge{display                                                               : inline-flex;align-items:center;gap:4px;font-size:.62rem;font-weight:700;padding:3px 8px;border-radius:20px;background:var(--green-pale);color:var(--green)}
+.live-badge .ld{width                                                             : 5px;height:5px;border-radius:50%;background:var(--green);animation:pulse 1.5s infinite}
+.offline-badge{display                                                            : inline-flex;align-items:center;gap:4px;font-size:.62rem;font-weight:700;padding:3px 8px;border-radius:20px;background:var(--bg3);color:var(--mid);border:1px solid var(--border)}
+.busy-badge{display                                                               : inline-flex;align-items:center;gap:4px;font-size:.62rem;font-weight:700;padding:3px 8px;border-radius:20px;background:var(--orange-pale);color:var(--orange)}
+.busy-badge .bd{width                                                             : 5px;height:5px;border-radius:50%;background:var(--orange);animation:pulse 1.5s infinite}
+.map-container{height                                                             : 340px;border-radius:12px;overflow:hidden;border:1px solid var(--border);margin-bottom:14px}
+.partner-grid{display                                                             : grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px}
+@media(max-width                                                                  : 1100px){.stat-grid{grid-template-columns:1fr 1fr}.two-col{grid-template-columns:1fr}.partner-grid{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════
+     LOGIN SCREEN
+══════════════════════════════════════ -->
+<div id                                                                           = "login-screen">
+  <div class                                                                      = "login-grid"></div>
+  <div class                                                                      = "login-glow-1"></div>
+  <div class                                                                      = "login-glow-2"></div>
+  <div class                                                                      = "login-orb"></div>
+  <div class                                                                      = "login-orb"></div>
+  <div class                                                                      = "login-orb"></div>
+  <div class                                                                      = "login-orb"></div>
+
+  <div class                                                                      = "login-card">
+    <div class                                                                    = "login-badge">
+      <div class                                                                  = "login-badge-dot"></div>
+      Admin Access Portal
+    </div>
+    <div class                                                                    = "login-logo-row">
+      <div class                                                                  = "login-logo-icon">LS</div>
+      <div>
+        <div class                                                                = "login-logo-text">Local<span>Shore</span></div>
+        <div class                                                                = "login-logo-sub">Admin Console</div>
+      </div>
+    </div>
+    <div class                                                                    = "login-headline">Sign in to<br><span>Console</span></div>
+    <p class                                                                      = "login-sub">Authorised personnel only. All access attempts are logged and monitored.</p>
+
+    <div class                                                                    = "login-err" id="login-err">
+      <span>⚠</span><span id="login-err-msg">Invalid credentials</span>
+    </div>
+
+    <div class                                                                    = "lf-group">
+      <label class                                                                = "lf-label">Admin Email</label>
+      <div class                                                                  = "lf-input-wrap">
+        <input class                                                              = "lf-input" type="email" id="login-email" placeholder="admin@localshore.com" autocomplete="email">
+        <span class                                                               = "lf-input-icon">✉</span>
+      </div>
+    </div>
+
+    <div class                                                                    = "lf-group">
+      <label class                                                                = "lf-label">Password</label>
+      <div class                                                                  = "lf-input-wrap">
+        <input class                                                              = "lf-input" type="password" id="login-pass" placeholder="••••••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
+        <button class                                                             = "lf-eye" id="eye-btn" onclick="toggleEye()" type="button">👁</button>
+      </div>
+    </div>
+
+    <button class                                                                 = "login-btn" id="login-btn" onclick="doLogin()">
+      <span id                                                                    = "login-btn-text">Access Console</span>
+      <span id                                                                    = "login-spinner" style="display:none" class="spin"></span>
+      <span id                                                                    = "login-arrow" style="font-size:.9rem">→</span>
+    </button>
+
+    <div class                                                                    = "security-chip">
+      <span>🔒</span> Secured with Firebase Auth · SSL Encrypted
+    </div>
+
+    <div style                                                                    = "text-align:center;margin-top:14px;font-size:.62rem;color:var(--dim)">
+      LocalShore Technologies Pvt. Ltd. · Admin Console v2.0
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     ADMIN APP
+══════════════════════════════════════ -->
+<div id                                                                           = "admin-app">
+
+<!-- SIDEBAR -->
+<aside class                                                                      = "sidebar">
+  <div class                                                                      = "sb-logo">
+    <div class                                                                    = "sb-logo-icon">LS</div>
+    <div>
+      <div class                                                                  = "sb-logo-text">Local<span>Shore</span></div>
+      <div class                                                                  = "sb-logo-sub">Admin Console</div>
+    </div>
+  </div>
+  <div class                                                                      = "sb-sec">Overview</div>
+  <button class                                                                   = "sb-item active" onclick="go('overview')"><span class="sb-ico">📊</span>Dashboard</button>
+  <div class                                                                      = "sb-sec">Vendors</div>
+  <button class                                                                   = "sb-item" onclick="go('approvals')"><span class="sb-ico">✅</span>Vendor Approvals<span class="sb-badge warn" id="bd-approvals">0</span></button>
+  <button class                                                                   = "sb-item" onclick="go('vendors')"><span class="sb-ico">🏪</span>All Vendors</button>
+  <button class                                                                   = "sb-item" onclick="go('commission')"><span class="sb-ico">💹</span>Commission Settings</button>
+  <button class                                                                   = "sb-item" onclick="go('delivery-charges')"><span class="sb-ico">🚚</span>Delivery Charges</button>
+  <div class                                                                      = "sb-sec">Delivery</div>
+  <button class                                                                   = "sb-item" onclick="go('partners')"><span class="sb-ico">🛵</span>Delivery Partners<span class="sb-badge green" id="bd-partners">0</span></button>
+  <button class                                                                   = "sb-item" onclick="go('partner-map')"><span class="sb-ico">🗺️</span>Live Partner Map</button>
+  <div class                                                                      = "sb-sec">Users</div>
+  <button class                                                                   = "sb-item" onclick="go('users')"><span class="sb-ico">👥</span>User Management</button>
+  <div class                                                                      = "sb-sec">Operations</div>
+  <button class                                                                   = "sb-item" onclick="go('orders')"><span class="sb-ico">📋</span>Order Monitoring<span class="sb-badge" id="bd-orders">0</span></button>
+  <button class                                                                   = "sb-item" onclick="go('refunds')"><span class="sb-ico">↩️</span>Refund Control<span class="sb-badge" id="bd-refunds">0</span></button>
+  <div class                                                                      = "sb-sec">Growth</div>
+  <button class                                                                   = "sb-item" onclick="go('banners')"><span class="sb-ico">🖼️</span>Marketing Banners</button>
+  <button class                                                                   = "sb-item" onclick="go('analytics')"><span class="sb-ico">📈</span>Analytics</button>
+  <div class                                                                      = "sb-bottom">
+    <div class                                                                    = "admin-chip">
+      <div class                                                                  = "admin-av" id="sb-admin-av">A</div>
+      <div style                                                                  = "flex:1;min-width:0">
+        <div class                                                                = "admin-name" id="sb-admin-name">Admin</div>
+        <div class                                                                = "admin-role">LocalShore</div>
+      </div>
+      <div class                                                                  = "fb-status loading" id="fb-status-indicator"><span class="spin-sm"></span></div>
+    </div>
+    <button class                                                                 = "btn-logout" onclick="doLogout()">🚪 Sign Out</button>
+  </div>
+</aside>
+
+<!-- MAIN -->
+<div class                                                                        = "main">
+  <div class                                                                      = "topbar">
+    <div class                                                                    = "tb-title" id="tb-title">Dashboard</div>
+    <div class                                                                    = "tb-right">
+      <div class                                                                  = "tb-admin-info">🔐 <span id="tb-admin-email">—</span></div>
+      <div class                                                                  = "tb-time" id="tb-clock"></div>
+      <div style                                                                  = "display:flex;align-items:center;gap:5px;font-size:.7rem;color:var(--green)"><div class="live-dot"></div>Live</div>
+    </div>
+  </div>
+  <div class                                                                      = "content">
+
+    <!-- DASHBOARD -->
+    <div class                                                                    = "panel active" id="panel-overview">
+      <div class                                                                  = "ph">
+        <div class                                                                = "ph-tag">Real-time Overview</div>
+        <div class                                                                = "ph-top"><div class="ph-title">Platform Dashboard 📊</div></div>
+        <div class                                                                = "ph-sub">Live data from all vendors, delivery partners, orders and customers.</div>
+      </div>
+      <div class                                                                  = "stat-grid" style="grid-template-columns:repeat(4,1fr)">
+        <div class                                                                = "stat-card orange"><div class="sc-ic">🏪</div><div class="sc-val" id="ov-v">—</div><div class="sc-label">Active Vendors</div><div class="sc-sub" id="ov-vp">— pending</div></div>
+        <div class                                                                = "stat-card green"><div class="sc-ic">📋</div><div class="sc-val" id="ov-o">—</div><div class="sc-label">Total Orders</div></div>
+        <div class                                                                = "stat-card purple"><div class="sc-ic">💰</div><div class="sc-val" id="ov-r">₹—</div><div class="sc-label">Total Revenue</div></div>
+        <div class                                                                = "stat-card cyan"><div class="sc-ic">👥</div><div class="sc-val" id="ov-u">—</div><div class="sc-label">Unique Customers</div></div>
+      </div>
+      <div style                                                                  = "background:linear-gradient(135deg,#0D1A2E,#0F2040);border:1px solid rgba(20,182,166,.25);border-radius:14px;padding:16px 20px;margin-bottom:20px;display:flex;align-items:center;gap:24px;flex-wrap:wrap">
+        <div style                                                                = "display:flex;align-items:center;gap:8px"><span style="font-size:1.4rem">🛵</span><div><div style="font-family:var(--disp);font-size:.7rem;font-weight:700;color:var(--teal)">Delivery Fleet</div><div style="font-size:.65rem;color:var(--mid);margin-top:1px">Real-time partner status</div></div></div>
+        <div style                                                                = "display:flex;gap:20px;flex-wrap:wrap">
+          <div style                                                              = "text-align:center"><div class="sc-val" id="ov-dp-total" style="font-size:1.1rem">—</div><div style="font-size:.6rem;color:var(--mid)">Total Partners</div></div>
+          <div style                                                              = "text-align:center"><div class="sc-val" id="ov-dp-online" style="font-size:1.1rem;color:var(--green)">—</div><div style="font-size:.6rem;color:var(--mid)">Online Now</div></div>
+          <div style                                                              = "text-align:center"><div class="sc-val" id="ov-dp-busy" style="font-size:1.1rem;color:var(--orange)">—</div><div style="font-size:.6rem;color:var(--mid)">On Delivery</div></div>
+          <div style                                                              = "text-align:center"><div class="sc-val" id="ov-dp-earn" style="font-size:1.1rem;color:var(--teal)">₹—</div><div style="font-size:.6rem;color:var(--mid)">Total Paid Out</div></div>
+          <div style                                                              = "text-align:center"><div class="sc-val" id="ov-dp-deliveries" style="font-size:1.1rem;color:var(--purple)">—</div><div style="font-size:.6rem;color:var(--mid)">Total Deliveries</div></div>
+        </div>
+        <button class                                                             = "btn btn-t btn-sm" onclick="go('partners')" style="margin-left:auto">View All Partners →</button>
+      </div>
+      <div class                                                                  = "two-col">
+        <div class                                                                = "card">
+          <div class                                                              = "card-head"><div class="card-title">🏪 Top Vendors by Revenue</div></div>
+          <div id                                                                 = "ov-top-vendors"></div>
+        </div>
+        <div class                                                                = "card">
+          <div class                                                              = "card-head"><div class="card-title">🛵 Partners Online Now</div></div>
+          <div id                                                                 = "ov-online-partners"></div>
+        </div>
+      </div>
+      <div class                                                                  = "card">
+        <div class                                                                = "card-head"><div class="card-title">📋 Latest Orders — All Vendors</div></div>
+        <div class                                                                = "tbl-wrap"><table class="dt">
+          <thead><tr><th>#</th><th>Product</th><th>Vendor</th><th>Customer</th><th>Amount</th><th>Partner</th><th>Status</th><th>Time</th></tr></thead>
+          <tbody id                                                               = "ov-orders-tb"></tbody>
+        </table></div>
+      </div>
+    </div>
+
+    <!-- APPROVALS -->
+    <div class                                                                    = "panel" id="panel-approvals">
+      <div class                                                                  = "ph">
+        <div class                                                                = "ph-tag">Vendor Management</div>
+        <div class                                                                = "ph-top"><div class="ph-title">Vendor Approvals ✅</div></div>
+        <div class                                                                = "ph-sub">Review and approve new vendor registrations.</div>
+      </div>
+      <div class                                                                  = "filter-bar">
+        <input class                                                              = "si" placeholder="🔍 Search vendors..." oninput="renderApprovals(this.value)">
+        <span class                                                               = "fc active" onclick="setAF('pending',this)">Pending</span>
+        <span class                                                               = "fc" onclick="setAF('approved',this)">Approved</span>
+        <span class                                                               = "fc" onclick="setAF('suspended',this)">Suspended</span>
+        <span class                                                               = "fc" onclick="setAF('all',this)">All</span>
+      </div>
+      <div id                                                                     = "approvals-list"></div>
+    </div>
+
+    <!-- ALL VENDORS -->
+    <div class                                                                    = "panel" id="panel-vendors">
+      <div class                                                                  = "ph">
+        <div class                                                                = "ph-tag">Vendor Management</div>
+        <div class                                                                = "ph-top"><div class="ph-title">All Vendors 🏪</div></div>
+        <div class                                                                = "ph-sub">Full vendor list with per-vendor orders and revenue.</div>
+      </div>
+      <div class                                                                  = "filter-bar">
+        <input class                                                              = "si" id="v-search" placeholder="🔍 Search..." oninput="renderVendors()">
+        <select class                                                             = "fi" style="width:auto" id="v-cat" onchange="renderVendors()">
+          <option value                                                           = "">All Categories</option>
+          <option>General Store</option><option>Fruits &amp; Vegetables</option><option>Electronics</option>
+          <option>Medical / Pharmacy</option><option>Fashion &amp; Clothing</option><option>Food &amp; Sweets</option>
+          <option>Bakery</option><option>Other</option>
+        </select>
+        <select class                                                             = "fi" style="width:auto" id="v-status" onchange="renderVendors()">
+          <option value                                                           = "">All Status</option><option>approved</option><option>pending</option><option>suspended</option>
+        </select>
+      </div>
+      <div class                                                                  = "tbl-wrap"><table class="dt">
+        <thead><tr><th>Vendor</th><th>Category</th><th>Location</th><th>Products</th><th>Orders</th><th>Revenue</th><th>Commission</th><th>Status</th><th>Actions</th></tr></thead>
+        <tbody id                                                                 = "vendors-tb"></tbody>
+      </table></div>
+    </div>
+
+    <!-- COMMISSION -->
+    <div class                                                                    = "panel" id="panel-commission">
+      <div class                                                                  = "ph">
+        <div class                                                                = "ph-tag">Financial Settings</div>
+        <div class                                                                = "ph-top"><div class="ph-title">Commission Settings 💹</div></div>
+        <div class                                                                = "ph-sub">Set platform commission % per product category.</div>
+      </div>
+      <div class                                                                  = "two-col">
+        <div class                                                                = "card">
+          <div class                                                              = "card-head"><div class="card-title">⚙️ Category Rates</div><button class="btn btn-p btn-sm" onclick="saveCommission()">💾 Save to Firebase</button></div>
+          <div id                                                                 = "comm-editor"></div>
+        </div>
+        <div>
+          <div class                                                              = "card">
+            <div class                                                            = "card-head"><div class="card-title">📊 Current Rates</div></div>
+            <div id                                                               = "comm-overview" style="display:grid;grid-template-columns:1fr 1fr;gap:8px"></div>
+          </div>
+          <div class                                                              = "card">
+            <div class                                                            = "card-head"><div class="card-title">💰 Projected Commission</div></div>
+            <div style                                                            = "font-family:var(--disp);font-size:2rem;font-weight:900;color:var(--orange);letter-spacing:-.04em" id="proj-comm">₹0</div>
+            <div style                                                            = "font-size:.7rem;color:var(--mid);margin-top:4px">Based on live order data × commission rates</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- DELIVERY CHARGES -->
+    <div class                                                                    = "panel" id="panel-delivery-charges">
+      <div class                                                                  = "ph">
+        <div class                                                                = "ph-tag">Logistics Settings</div>
+        <div class                                                                = "ph-top"><div class="ph-title">Delivery Charges 🚚</div></div>
+        <div class                                                                = "ph-sub">Configure delivery fees by distance tier.</div>
+      </div>
+      <div class                                                                  = "two-col">
+        <div class                                                                = "card">
+          <div class                                                              = "card-head"><div class="card-title">📏 Distance Tiers</div><button class="btn btn-s btn-sm" onclick="saveDelivery()">💾 Save</button></div>
+          <div id                                                                 = "del-editor"></div>
+          <button class                                                           = "btn btn-g btn-sm" onclick="addTier()" style="margin-top:10px">+ Add Tier</button>
+          <div class                                                              = "divider"></div>
+          <div class                                                              = "fg"><label class="fl">Free Delivery Above (₹)</label><input class="fi" type="number" id="free-min" value="500"></div>
+        </div>
+        <div class                                                                = "card">
+          <div class                                                              = "card-head"><div class="card-title">📊 Visual</div></div>
+          <div id                                                                 = "del-visual"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- DELIVERY PARTNERS -->
+    <div class                                                                    = "panel" id="panel-partners">
+      <div class                                                                  = "ph">
+        <div class                                                                = "ph-tag">Delivery Fleet</div>
+        <div class                                                                = "ph-top">
+          <div class                                                              = "ph-title">Delivery Partners 🛵</div>
+          <div style                                                              = "display:flex;gap:8px">
+            <button class                                                         = "btn btn-t btn-sm" onclick="go('partner-map')">🗺️ Live Map</button>
+          </div>
+        </div>
+        <div class                                                                = "ph-sub">All registered delivery partners. Real-time online/offline status, active orders and earnings.</div>
+      </div>
+      <div class                                                                  = "stat-grid">
+        <div class                                                                = "stat-card teal"><div class="sc-ic">🛵</div><div class="sc-val" id="dp-total">—</div><div class="sc-label">Total Partners</div></div>
+        <div class                                                                = "stat-card green"><div class="sc-ic">🟢</div><div class="sc-val" id="dp-online">—</div><div class="sc-label">Online Now</div></div>
+        <div class                                                                = "stat-card orange"><div class="sc-ic">📦</div><div class="sc-val" id="dp-busy">—</div><div class="sc-label">On Active Delivery</div></div>
+        <div class                                                                = "stat-card purple"><div class="sc-ic">💸</div><div class="sc-val" id="dp-payout">₹—</div><div class="sc-label">Total Earnings Paid</div></div>
+      </div>
+      <div class                                                                  = "filter-bar">
+        <input class                                                              = "si" id="dp-search" placeholder="🔍 Search name, phone, vehicle..." oninput="renderPartners()">
+        <span class                                                               = "fc active" id="dpf-all" onclick="setDPF('all',this)">All</span>
+        <span class                                                               = "fc" id="dpf-online" onclick="setDPF('online',this)">Online</span>
+        <span class                                                               = "fc" id="dpf-busy" onclick="setDPF('busy',this)">On Delivery</span>
+        <span class                                                               = "fc" id="dpf-offline" onclick="setDPF('offline',this)">Offline</span>
+        <select class                                                             = "fi" style="width:auto" id="dp-vehicle-filter" onchange="renderPartners()">
+          <option value                                                           = "">All Vehicles</option>
+          <option value                                                           = "bicycle">🚲 Bicycle</option>
+          <option value                                                           = "bike">🛵 Bike</option>
+          <option value                                                           = "car">🚗 Car</option>
+        </select>
+      </div>
+      <div id                                                                     = "partners-list"></div>
+    </div>
+
+    <!-- LIVE PARTNER MAP -->
+    <div class                                                                    = "panel" id="panel-partner-map">
+      <div class                                                                  = "ph">
+        <div class                                                                = "ph-tag">Live Tracking</div>
+        <div class                                                                = "ph-top"><div class="ph-title">Live Partner Map 🗺️</div></div>
+        <div class                                                                = "ph-sub">Real-time locations of all online delivery partners across Coimbatore.</div>
+      </div>
+      <div class                                                                  = "two-col" style="align-items:start">
+        <div>
+          <div class                                                              = "map-container" id="live-map"></div>
+          <div class                                                              = "card" style="margin-bottom:0">
+            <div class                                                            = "card-head"><div class="card-title">🔑 Map Legend</div></div>
+            <div style                                                            = "display:flex;gap:14px;flex-wrap:wrap;font-size:.72rem">
+              <div style                                                          = "display:flex;align-items:center;gap:6px"><div style="width:14px;height:14px;border-radius:50%;background:var(--green);border:2px solid #fff"></div>Online (Idle)</div>
+              <div style                                                          = "display:flex;align-items:center;gap:6px"><div style="width:14px;height:14px;border-radius:50%;background:var(--orange);border:2px solid #fff"></div>On Delivery</div>
+              <div style                                                          = "display:flex;align-items:center;gap:6px"><div style="width:14px;height:14px;border-radius:50%;background:var(--dim);border:2px solid #fff"></div>Offline</div>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div class                                                              = "card">
+            <div class                                                            = "card-head"><div class="card-title">🟢 Online Partners</div><span class="pill green" id="map-online-count">0 online</span></div>
+            <div id                                                               = "map-partner-list" style="display:flex;flex-direction:column;gap:8px;max-height:400px;overflow-y:auto"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- USERS -->
+    <div class                                                                    = "panel" id="panel-users">
+      <div class                                                                  = "ph">
+        <div class                                                                = "ph-tag">User Management</div>
+        <div class                                                                = "ph-top"><div class="ph-title">User Management 👥</div></div>
+        <div class                                                                = "ph-sub">All customers derived from order data + all vendor accounts.</div>
+      </div>
+      <div class                                                                  = "stat-grid" style="grid-template-columns:repeat(4,1fr)">
+        <div class                                                                = "stat-card cyan"><div class="sc-ic">👤</div><div class="sc-val" id="u-total">—</div><div class="sc-label">Total Users</div></div>
+        <div class                                                                = "stat-card green"><div class="sc-ic">🛒</div><div class="sc-val" id="u-customers">—</div><div class="sc-label">Customers</div></div>
+        <div class                                                                = "stat-card orange"><div class="sc-ic">🏪</div><div class="sc-val" id="u-vendors">—</div><div class="sc-label">Vendors</div></div>
+        <div class                                                                = "stat-card red"><div class="sc-ic">🚫</div><div class="sc-val" id="u-sus">0</div><div class="sc-label">Suspended</div></div>
+      </div>
+      <div class                                                                  = "filter-bar">
+        <input class                                                              = "si" id="u-search" placeholder="🔍 Search..." oninput="renderUsers()">
+        <span class                                                               = "fc active" id="uf-c" onclick="setUF('customer',this)">Customers</span>
+        <span class                                                               = "fc" id="uf-v" onclick="setUF('vendor',this)">Vendors</span>
+        <span class                                                               = "fc" id="uf-a" onclick="setUF('all',this)">All</span>
+      </div>
+      <div class                                                                  = "tbl-wrap"><table class="dt">
+        <thead><tr><th>Name</th><th>Type</th><th>Contact</th><th>Area</th><th>Orders</th><th>Total Spent</th><th>Status</th><th>Actions</th></tr></thead>
+        <tbody id                                                                 = "users-tb"></tbody>
+      </table></div>
+    </div>
+
+    <!-- ORDERS -->
+    <div class                                                                    = "panel" id="panel-orders">
+      <div class                                                                  = "ph">
+        <div class                                                                = "ph-tag">Operations</div>
+        <div class                                                                = "ph-top"><div class="ph-title">Order Monitoring 📋</div></div>
+        <div class                                                                = "ph-sub">All orders from all vendors in real-time. Update statuses directly.</div>
+      </div>
+      <div class                                                                  = "stat-grid">
+        <div class                                                                = "stat-card orange"><div class="sc-ic">🆕</div><div class="sc-val" id="os-confirmed">0</div><div class="sc-label">Confirmed</div></div>
+        <div class                                                                = "stat-card purple"><div class="sc-ic">📦</div><div class="sc-val" id="os-packed">0</div><div class="sc-label">Packed</div></div>
+        <div class                                                                = "stat-card" style="--ac:var(--blue)"><div class="sc-ic">🚚</div><div class="sc-val" id="os-transit">0</div><div class="sc-label">In Transit</div></div>
+        <div class                                                                = "stat-card green"><div class="sc-ic">✅</div><div class="sc-val" id="os-del">0</div><div class="sc-label">Delivered</div></div>
+      </div>
+      <div class                                                                  = "filter-bar">
+        <input class                                                              = "si" id="o-search" placeholder="🔍 Product, vendor, customer, partner..." oninput="renderOrders()">
+        <select class                                                             = "fi" style="width:auto" id="o-sf" onchange="renderOrders()">
+          <option value                                                           = "">All Status</option>
+          <option>Confirmed</option><option>Packed</option><option>Shipped</option>
+          <option>Ready for Pickup</option><option>Picked Up</option><option>Out for Delivery</option>
+          <option>Delivered</option><option>Cancelled</option>
+        </select>
+        <select class                                                             = "fi" style="width:auto" id="o-vf" onchange="renderOrders()">
+          <option value                                                           = "">All Vendors</option>
+        </select>
+      </div>
+      <div class                                                                  = "tbl-wrap"><table class="dt">
+        <thead><tr><th>#</th><th>Product</th><th>Vendor</th><th>Customer</th><th>Amount</th><th>Delivery Partner</th><th>Status</th><th>Date</th></tr></thead>
+        <tbody id                                                                 = "orders-tb"></tbody>
+      </table></div>
+    </div>
+
+    <!-- REFUNDS -->
+    <div class                                                                    = "panel" id="panel-refunds">
+      <div class                                                                  = "ph">
+        <div class                                                                = "ph-tag">Operations</div>
+        <div class                                                                = "ph-top">
+          <div class                                                              = "ph-title">Refund Control ↩️</div>
+          <button class                                                           = "btn btn-g btn-sm" onclick="openAddRefund()">+ Log Refund Request</button>
+        </div>
+        <div class                                                                = "ph-sub">Manage refund requests. Actions are saved to Firebase.</div>
+      </div>
+      <div class                                                                  = "two-col" style="margin-bottom:14px">
+        <div class                                                                = "stat-card red" style="margin:0"><div class="sc-ic">⏳</div><div class="sc-val" id="rf-p">0</div><div class="sc-label">Pending</div></div>
+        <div class                                                                = "stat-card green" style="margin:0"><div class="sc-ic">✅</div><div class="sc-val" id="rf-a">0</div><div class="sc-label">Approved Total</div></div>
+      </div>
+      <div id                                                                     = "refunds-list"></div>
+    </div>
+
+    <!-- BANNERS -->
+    <div class                                                                    = "panel" id="panel-banners">
+      <div class                                                                  = "ph">
+        <div class                                                                = "ph-tag">Marketing</div>
+        <div class                                                                = "ph-top"><div class="ph-title">Marketing Banners 🖼️</div></div>
+        <div class                                                                = "ph-sub">Publish promotional banners saved to Firebase.</div>
+      </div>
+      <div class                                                                  = "two-col">
+        <div class                                                                = "card">
+          <div class                                                              = "card-head"><div class="card-title">➕ Create Banner</div></div>
+          <div class                                                              = "fg"><label class="fl">Title</label><input class="fi" id="b-t" placeholder="e.g. Weekend Sale!" oninput="prevBanner()"></div>
+          <div class                                                              = "fg"><label class="fl">Subtitle</label><input class="fi" id="b-s" placeholder="e.g. On all fresh produce" oninput="prevBanner()"></div>
+          <div class                                                              = "form-row">
+            <div class                                                            = "fg" style="margin:0"><label class="fl">Color 1</label><input class="fi" type="color" id="b-c1" value="#1446A0" oninput="prevBanner()" style="height:38px;padding:4px"></div>
+            <div class                                                            = "fg" style="margin:0"><label class="fl">Color 2</label><input class="fi" type="color" id="b-c2" value="#F7931E" oninput="prevBanner()" style="height:38px;padding:4px"></div>
+          </div>
+          <div class                                                              = "fg"><label class="fl">Target Area</label>
+            <select class                                                         = "fi" id="b-area">
+              <option value                                                       = "All Areas">All Areas</option>
+              <option>RS Puram</option><option>Saibaba Colony</option><option>Peelamedu</option>
+              <option>Gandhipuram</option><option>Ukkadam</option><option>Singanallur</option>
+            </select>
+          </div>
+          <button class                                                           = "btn btn-p" onclick="addBanner()" style="width:100%;justify-content:center;margin-top:6px">🚀 Publish to Firebase</button>
+        </div>
+        <div>
+          <div class                                                              = "card">
+            <div class                                                            = "card-head"><div class="card-title">👁️ Preview</div></div>
+            <div id                                                               = "banner-prev" style="height:85px;border-radius:10px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#1446A0,#F7931E)">
+              <div style                                                          = "text-align:center;padding:0 12px">
+                <div id                                                           = "bp-t" style="font-family:var(--disp);font-size:.8rem;font-weight:800;color:#fff;margin-bottom:2px">Banner Title</div>
+                <div id                                                           = "bp-s" style="font-size:.7rem;color:rgba(255,255,255,.8)">Subtitle</div>
+              </div>
+            </div>
+          </div>
+          <div class                                                              = "card">
+            <div class                                                            = "card-head"><div class="card-title">📋 Live Banners</div></div>
+            <div id                                                               = "banners-list" style="display:flex;flex-direction:column;gap:7px"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ANALYTICS -->
+    <div class                                                                    = "panel" id="panel-analytics">
+      <div class                                                                  = "ph">
+        <div class                                                                = "ph-tag">Analytics — Coimbatore</div>
+        <div class                                                                = "ph-top"><div class="ph-title">Sales Analytics 📈</div></div>
+        <div class                                                                = "ph-sub">Live order and revenue data by area, category and vendor.</div>
+      </div>
+      <div class                                                                  = "stat-grid">
+        <div class                                                                = "stat-card orange"><div class="sc-ic">💰</div><div class="sc-val" id="an-rev">₹—</div><div class="sc-label">Total Revenue</div></div>
+        <div class                                                                = "stat-card green"><div class="sc-ic">📋</div><div class="sc-val" id="an-ord">—</div><div class="sc-label">Total Orders</div></div>
+        <div class                                                                = "stat-card"><div class="sc-ic">📦</div><div class="sc-val" id="an-qty">—</div><div class="sc-label">Items Sold</div></div>
+        <div class                                                                = "stat-card cyan"><div class="sc-ic">📍</div><div class="sc-val">9</div><div class="sc-label">Active Areas</div></div>
+      </div>
+      <div class                                                                  = "two-col">
+        <div class                                                                = "card">
+          <div class                                                              = "card-head"><div class="card-title">📍 Sales by Area</div></div>
+          <div id                                                                 = "area-cards" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px"></div>
+        </div>
+        <div class                                                                = "card">
+          <div class                                                              = "card-head"><div class="card-title">📊 Revenue Last 7 Days</div></div>
+          <div class                                                              = "bar-chart" id="chart-7d"></div>
+        </div>
+      </div>
+      <div class                                                                  = "two-col">
+        <div class                                                                = "card">
+          <div class                                                              = "card-head"><div class="card-title">🏷️ Revenue by Category</div></div>
+          <div id                                                                 = "chart-cat" style="display:flex;flex-direction:column;gap:8px;margin-top:4px"></div>
+        </div>
+        <div class                                                                = "card">
+          <div class                                                              = "card-head"><div class="card-title">🏪 Top Vendors by Orders</div></div>
+          <div class                                                              = "bar-chart" id="chart-vendors"></div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /content -->
+</div><!-- /main -->
+
+</div><!-- /admin-app -->
+
+<!-- MODALS -->
+<div class                                                                        = "overlay" id="mo-vendor">
+  <div class                                                                      = "modal" style="width:660px">
+    <div style                                                                    = "display:flex;justify-content:space-between;margin-bottom:3px">
+      <div class                                                                  = "modal-t" id="mv-name">Vendor</div>
+      <button class                                                               = "mclose" onclick="closeM('mo-vendor')">✕</button>
+    </div>
+    <div class                                                                    = "modal-s" id="mv-sub"></div>
+    <div id                                                                       = "mv-body"></div>
+  </div>
+</div>
+<div class                                                                        = "overlay" id="mo-user">
+  <div class                                                                      = "modal">
+    <div style                                                                    = "display:flex;justify-content:space-between;margin-bottom:3px">
+      <div class                                                                  = "modal-t" id="mu-name">User</div>
+      <button class                                                               = "mclose" onclick="closeM('mo-user')">✕</button>
+    </div>
+    <div class                                                                    = "modal-s" id="mu-sub"></div>
+    <div id                                                                       = "mu-body"></div>
+  </div>
+</div>
+<div class                                                                        = "overlay" id="mo-partner">
+  <div class                                                                      = "modal" style="width:680px">
+    <div style                                                                    = "display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:3px">
+      <div class                                                                  = "modal-t" id="mp-name">Delivery Partner</div>
+      <button class                                                               = "mclose" onclick="closeM('mo-partner')">✕</button>
+    </div>
+    <div class                                                                    = "modal-s" id="mp-sub"></div>
+    <div id                                                                       = "mp-body"></div>
+  </div>
+</div>
+<div class                                                                        = "overlay" id="mo-refund">
+  <div class                                                                      = "modal" style="width:480px">
+    <div style                                                                    = "display:flex;justify-content:space-between;margin-bottom:3px">
+      <div class                                                                  = "modal-t">Log Refund Request</div>
+      <button class                                                               = "mclose" onclick="closeM('mo-refund')">✕</button>
+    </div>
+    <div class                                                                    = "modal-s">Manually add a customer refund request</div>
+    <div class                                                                    = "fg"><label class="fl">Customer Name</label><input class="fi" id="rf-cname" placeholder="Customer name"></div>
+    <div class                                                                    = "fg"><label class="fl">Product</label><input class="fi" id="rf-prod" placeholder="Product name"></div>
+    <div class                                                                    = "fg"><label class="fl">Vendor</label><input class="fi" id="rf-vendor" placeholder="Shop name"></div>
+    <div class                                                                    = "fg"><label class="fl">Amount (₹)</label><input class="fi" type="number" id="rf-amt" placeholder="Order amount"></div>
+    <div class                                                                    = "fg"><label class="fl">Reason</label>
+      <select class                                                               = "fi" id="rf-reason">
+        <option>Item damaged on delivery</option><option>Wrong item received</option>
+        <option>Expired product</option><option>Not delivered</option><option>Quality issue</option><option>Other</option>
+      </select>
+    </div>
+    <button class                                                                 = "btn btn-p" onclick="submitRefund()" style="width:100%;justify-content:center;margin-top:6px">Submit Refund Request</button>
+  </div>
+</div>
+
+<div class                                                                        = "toast" id="toast"></div>
+
+<script>
+// ════════════════════════════════════════════════
+//  FIREBASE INIT
+// ════════════════════════════════════════════════
+const fbConfig={
+  apiKey                                                                          : "AIzaSyD3bMVjeXXAYvCeUgvhlT_KrHuhpgohqgU",
+  authDomain                                                                      : "localshore.firebaseapp.com",
+  projectId                                                                       : "localshore",
+  storageBucket                                                                   : "localshore.firebasestorage.app",
+  messagingSenderId                                                               : "571613573322",
+  appId                                                                           : "1:571613573322:web:231c155de7d8227e0e8433"
+};
+firebase.initializeApp(fbConfig);
+const auth                                                                        = firebase.auth();
+const db                                                                          = firebase.firestore();
+
+// ════════════════════════════════════════════════
+//  LOGIN LOGIC
+// ════════════════════════════════════════════════
+const ADMIN_EMAIL                                                                 = 'localshoreofficial@gmail.com';
+
+function toggleEye(){
+  const inp                                                                       = document.getElementById('login-pass');
+  const btn                                                                       = document.getElementById('eye-btn');
+  if(inp.type==='password'){inp.type='text';btn.textContent='🙈';}
+  else{inp.type                                                                   = 'password';btn.textContent='👁';}
+}
+
+async function doLogin(){
+  const email                                                                     = document.getElementById('login-email').value.trim();
+  const pass                                                                      = document.getElementById('login-pass').value;
+  const errEl                                                                     = document.getElementById('login-err');
+  const errMsg                                                                    = document.getElementById('login-err-msg');
+  const btn                                                                       = document.getElementById('login-btn');
+  const btnText                                                                   = document.getElementById('login-btn-text');
+  const spinner                                                                   = document.getElementById('login-spinner');
+  const arrow                                                                     = document.getElementById('login-arrow');
+
+  errEl.classList.remove('show');
+  if(!email||!pass){errMsg.textContent='Please enter email and password.';errEl.classList.add('show');return;}
+
+  // Only allow the designated admin email
+  if(email.toLowerCase()!==ADMIN_EMAIL.toLowerCase()){
+    errMsg.textContent                                                            = 'Access denied. Unauthorised email address.';errEl.classList.add('show');return;
+  }
+
+  btn.disabled                                                                    = true;btnText.textContent='Authenticating';spinner.style.display='inline-block';arrow.style.display='none';
+
+  try{
+    const cred                                                                    = await auth.signInWithEmailAndPassword(email,pass);
+    // Log the login event to Firestore
+    await db.collection('admin_logins').add({
+      email                                                                       : cred.user.email,
+      uid                                                                         : cred.user.uid,
+      loginAt                                                                     : new Date().toISOString(),
+      userAgent                                                                   : navigator.userAgent.slice(0,120)
+    });
+    showAdminApp(cred.user);
+  }catch(e){
+    let msg                                                                       = 'Login failed. Please check your credentials.';
+    if(e.code==='auth/user-not-found'||e.code==='auth/wrong-password'||e.code==='auth/invalid-credential')msg='Invalid email or password.';
+    else if(e.code==='auth/too-many-requests')msg='Too many attempts. Please try again later.';
+    else if(e.code==='auth/network-request-failed')msg='Network error. Check your connection.';
+    errMsg.textContent                                                            = msg;errEl.classList.add('show');
+  }finally{
+    btn.disabled                                                                  = false;btnText.textContent='Access Console';spinner.style.display='none';arrow.style.display='inline';
+  }
+}
+
+function showAdminApp(user){
+  document.getElementById('login-screen').classList.add('hidden');
+  document.getElementById('admin-app').classList.add('visible');
+  // Update UI with admin info
+  const emailShort                                                                = user.email||'Admin';
+  document.getElementById('tb-admin-email').textContent=emailShort;
+  document.getElementById('sb-admin-name').textContent='Super Admin';
+  document.getElementById('sb-admin-av').textContent='A';
+  startListeners();
+}
+
+async function doLogout(){
+  if(!confirm('Sign out of Admin Console?'))return;
+  try{
+    await auth.signOut();
+    document.getElementById('admin-app').classList.remove('visible');
+    document.getElementById('login-screen').classList.remove('hidden');
+    document.getElementById('login-email').value='';
+    document.getElementById('login-pass').value='';
+    stopListeners();
+    toast('Signed out successfully','info');
+  }catch(e){toast('Logout error: '+e.message,'err');}
+}
+
+// Check if already logged in on page load
+auth.onAuthStateChanged(user=>{
+  if(user&&user.email===ADMIN_EMAIL){
+    showAdminApp(user);
+  }
+});
+
+// ════════════════════════════════════════════════
+//  STATE
+// ════════════════════════════════════════════════
+let _shops                                                                        = [],_products=[],_orders=[],_partners=[],_refunds=[],_banners=[];
+let _commRates                                                                    = {},_deliveryTiers=[],_freeDeliveryMin=500;
+let _afFilter                                                                     = 'pending',_afSearch='',_ufFilter='customer',_dpFilter='all';
+let _liveMap                                                                      = null,_liveMarkers={};
+let _listeners                                                                    = [];
+
+const AREAS                                                                       = ['RS Puram','Saibaba Colony','Peelamedu','Gandhipuram','Ukkadam','Singanallur','Vadavalli','Hopes College','Tidel Park'];
+const PALETTE                                                                     = ['#F59E0B','#10B981','#3B82F6','#8B5CF6','#EF4444','#06B6D4','#F97316','#A78BFA','#34D399','#60A5FA','#FBBF24'];
+const STATUS_PILL                                                                 = {Confirmed:'orange',Packed:'purple',Shipped:'blue','Ready for Pickup':'teal','Picked Up':'cyan','Out for Delivery':'orange',Delivered:'green',Cancelled:'red'};
+
+const C={
+  shops                                                                           : ()=>db.collection('shops'),
+  products                                                                        : ()=>db.collection('products'),
+  orders                                                                          : ()=>db.collection('orders'),
+  partners                                                                        : ()=>db.collection('delivery_partners'),
+  refunds                                                                         : ()=>db.collection('admin_refunds'),
+  config                                                                          : ()=>db.collection('admin_config'),
+  banners                                                                         : ()=>db.collection('admin_banners')
+};
+
+const now                                                                         = ()=>new Date().toISOString();
+const fmtD                                                                        = d=>d?new Date(d).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}):'—';
+const fmtT                                                                        = d=>d?new Date(d).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}):'—';
+const money                                                                       = n=>'₹'+(n||0).toLocaleString('en-IN');
+const initials                                                                    = s=>s?s.trim().split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase():'?';
+const colorFor                                                                    = (s,i)=>PALETTE[(s.charCodeAt(0)+s.charCodeAt(s.length-1)+i)%PALETTE.length];
+const vehicleEmoji                                                                = v=>({'bicycle':'🚲','bike':'🛵','car':'🚗'}[v]||'🛵');
+const capitalize                                                                  = s=>s?s[0].toUpperCase()+s.slice(1):'';
+
+const toast=(m,t='ok')=>{
+  const e                                                                         = document.getElementById('toast');
+  e.textContent                                                                   = m;e.className='toast show '+t;
+  clearTimeout(toast._t);toast._t                                                 = setTimeout(()=>e.className='toast',3600);
+};
+
+setInterval(()=>{document.getElementById('tb-clock').textContent=new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',second:'2-digit'})},1000);
+
+function setFbStatus(s){
+  const el                                                                        = document.getElementById('fb-status-indicator');
+  const map                                                                       = {live:'✓',loading:'<span class="spin-sm"></span>',err:'⚠'};
+  el.innerHTML                                                                    = map[s]||s;el.className='fb-status '+s;
+}
+
+// ════════════════════════════════════════════════
+//  PARTNER HELPERS
+// ════════════════════════════════════════════════
+function partnerStatus(p){if(p.activeOrderId)return 'busy';if(p.isOnline)return 'online';return 'offline';}
+function partnerOrders(pid){return _orders.filter(o=>o.deliveryPartnerId===pid);}
+function partnerActiveOrder(p){if(!p.activeOrderId)return null;return _orders.find(o=>o.id===p.activeOrderId)||null;}
+
+// ════════════════════════════════════════════════
+//  LISTENERS
+// ════════════════════════════════════════════════
+function stopListeners(){_listeners.forEach(u=>u&&u());_listeners=[];}
+
+function startListeners(){
+  stopListeners();
+  _listeners.push(C.shops().onSnapshot(snap=>{
+    _shops                                                                        = [];snap.forEach(d=>_shops.push({id:d.id,...d.data()}));
+    setFbStatus('live');refreshAll();
+  },err=>{setFbStatus('err');toast('Firebase: '+err.message,'err');}));
+
+  _listeners.push(C.products().onSnapshot(snap=>{
+    _products                                                                     = [];snap.forEach(d=>_products.push({id:d.id,...d.data()}));
+    refreshAll();
+  },()=>{}));
+
+  _listeners.push(C.orders().onSnapshot(snap=>{
+    _orders                                                                       = [];snap.forEach(d=>_orders.push({id:d.id,...d.data()}));
+    _orders.sort((a,b)=>new Date(b.orderedAt||0)-new Date(a.orderedAt||0));
+    refreshAll();updateBadges();
+  },()=>{}));
+
+  _listeners.push(C.partners().onSnapshot(snap=>{
+    _partners                                                                     = [];snap.forEach(d=>_partners.push({id:d.id,...d.data()}));
+    refreshPartnerUI();updateBadges();updateLiveMapMarkers();
+  },err=>toast('Partner error: '+err.message,'err')));
+
+  _listeners.push(C.refunds().onSnapshot(snap=>{
+    _refunds                                                                      = [];snap.forEach(d=>_refunds.push({id:d.id,...d.data()}));
+    if(document.getElementById('panel-refunds').classList.contains('active'))renderRefunds();
+    updateBadges();
+  },()=>{}));
+
+  _listeners.push(C.banners().onSnapshot(snap=>{
+    _banners                                                                      = [];snap.forEach(d=>_banners.push({id:d.id,...d.data()}));
+    if(document.getElementById('panel-banners').classList.contains('active'))renderBannersList();
+  },()=>{}));
+
+  _listeners.push(C.config().doc('settings').onSnapshot(snap=>{
+    if(snap.exists){
+      const d                                                                     = snap.data();
+      if(d.commission)_commRates=d.commission;
+      if(d.deliveryTiers)_deliveryTiers=d.deliveryTiers;
+      if(d.freeDeliveryMin)_freeDeliveryMin=d.freeDeliveryMin;
+    }else{
+      _commRates                                                                  = {'General Store':8,'Fruits & Vegetables':5,'Electronics':12,'Medical / Pharmacy':6,'Fashion & Clothing':14,'Food & Sweets':10,'Bakery':9,'Other':10};
+      _deliveryTiers                                                              = [{range:'0–3 km',charge:20},{range:'3–6 km',charge:35},{range:'6–10 km',charge:50},{range:'10–15 km',charge:70}];
+    }
+    if(document.getElementById('panel-commission').classList.contains('active'))renderCommission();
+    if(document.getElementById('panel-delivery-charges').classList.contains('active'))renderDelivery();
+  },()=>{
+    _commRates                                                                    = {'General Store':8,'Fruits & Vegetables':5,'Electronics':12,'Medical / Pharmacy':6,'Fashion & Clothing':14,'Food & Sweets':10,'Bakery':9,'Other':10};
+    _deliveryTiers                                                                = [{range:'0–3 km',charge:20},{range:'3–6 km',charge:35},{range:'6–10 km',charge:50},{range:'10–15 km',charge:70}];
+  }));
+}
+
+// ════════════════════════════════════════════════
+//  REFRESH
+// ════════════════════════════════════════════════
+function refreshAll(){
+  renderOverview();
+  const p                                                                         = document.querySelector('.panel.active')?.id?.replace('panel-','');
+  if(p==='approvals')renderApprovals();
+  else if(p==='vendors')renderVendors();
+  else if(p==='orders')renderOrders();
+  else if(p==='users')renderUsers();
+  else if(p==='analytics')renderAnalytics();
+  else if(p==='commission')renderCommission();
+  else if(p==='delivery-charges')renderDelivery();
+  else if(p==='refunds')renderRefunds();
+  else if(p==='banners')renderBannersList();
+}
+function refreshPartnerUI(){
+  renderOverviewPartnerStats();
+  const p                                                                         = document.querySelector('.panel.active')?.id?.replace('panel-','');
+  if(p==='partners')renderPartners();
+  if(p==='partner-map'){renderMapPartnerList();updateLiveMapMarkers();}
+}
+
+// ════════════════════════════════════════════════
+//  NAVIGATION
+// ════════════════════════════════════════════════
+const PANELS                                                                      = {overview:'Dashboard',approvals:'Vendor Approvals',vendors:'All Vendors',commission:'Commission Settings','delivery-charges':'Delivery Charges',partners:'Delivery Partners','partner-map':'Live Partner Map',users:'User Management',orders:'Order Monitoring',refunds:'Refund Control',banners:'Marketing Banners',analytics:'Analytics'};
+const SB_ORDER                                                                    = ['overview','approvals','vendors','commission','delivery-charges','partners','partner-map','users','orders','refunds','banners','analytics'];
+
+function go(n){
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.sb-item').forEach(b=>b.classList.remove('active'));
+  document.getElementById('panel-'+n)?.classList.add('active');
+  document.getElementById('tb-title').textContent=PANELS[n]||n;
+  const idx                                                                       = SB_ORDER.indexOf(n);
+  if(idx>=0)document.querySelectorAll('.sb-item')[idx]?.classList.add('active');
+  if(n==='approvals')renderApprovals();
+  else if(n==='vendors')renderVendors();
+  else if(n==='orders')renderOrders();
+  else if(n==='users')renderUsers();
+  else if(n==='analytics')renderAnalytics();
+  else if(n==='commission')renderCommission();
+  else if(n==='delivery-charges')renderDelivery();
+  else if(n==='refunds')renderRefunds();
+  else if(n==='banners'){renderBannersList();prevBanner();}
+  else if(n==='partners')renderPartners();
+  else if(n==='partner-map'){renderMapPartnerList();setTimeout(()=>initLiveMap(),100);}
+}
+
+// ════════════════════════════════════════════════
+//  HELPERS
+// ════════════════════════════════════════════════
+function vendorOrders(shopId){return _orders.filter(o=>o.shopId===shopId||o.vendorId===shopId);}
+function vendorRevenue(shopId){return vendorOrders(shopId).filter(o=>o.status!=='Cancelled').reduce((s,o)=>s+(o.total||0),0);}
+function vendorProductCount(shopId){return _products.filter(p=>p.vendorId===shopId||p.shopId===shopId).length;}
+
+function updateBadges(){
+  document.getElementById('bd-approvals').textContent=_shops.filter(s=>!s.adminStatus||s.adminStatus==='pending').length;
+  document.getElementById('bd-orders').textContent=_orders.filter(o=>o.status==='Confirmed').length;
+  document.getElementById('bd-refunds').textContent=_refunds.filter(r=>r.status==='pending').length;
+  document.getElementById('bd-partners').textContent=_partners.filter(p=>p.isOnline).length;
+}
+
+// ════════════════════════════════════════════════
+//  OVERVIEW
+// ════════════════════════════════════════════════
+function renderOverview(){
+  const approved                                                                  = _shops.filter(s=>s.adminStatus==='approved');
+  const pending                                                                   = _shops.filter(s=>!s.adminStatus||s.adminStatus==='pending');
+  const validOrds                                                                 = _orders.filter(o=>o.status!=='Cancelled');
+  const totalRev                                                                  = validOrds.reduce((s,o)=>s+(o.total||0),0);
+  const customers                                                                 = new Set(_orders.map(o=>o.phone||o.customerId).filter(Boolean));
+  document.getElementById('ov-v').textContent=approved.length||_shops.length;
+  document.getElementById('ov-vp').textContent=pending.length+' pending approval';
+  document.getElementById('ov-o').textContent=_orders.length;
+  document.getElementById('ov-r').textContent=money(totalRev);
+  document.getElementById('ov-u').textContent=customers.size;
+  renderOverviewPartnerStats();
+  const topV                                                                      = _shops.map(s=>({...s,_rev:vendorRevenue(s.id)})).sort((a,b)=>b._rev-a._rev).slice(0,6);
+  const maxRev                                                                    = topV[0]?._rev||1;
+  document.getElementById('ov-top-vendors').innerHTML=topV.length?topV.map(v=>`
+    <div style                                                                    = "display:flex;align-items:center;gap:9px;margin-bottom:9px">
+      <div class                                                                  = "avatar" style="width:30px;height:30px;background:${colorFor(v.id,0)};font-size:.66rem;border-radius:8px">${initials(v.name)}</div>
+      <div style                                                                  = "flex:1;min-width:0">
+        <div style                                                                = "font-size:.78rem;font-weight:600;margin-bottom:3px">${v.name||'—'}</div>
+        <div class                                                                = "pct-bar"><div class="pct-fill" style="width:${Math.round((v._rev/maxRev)*100)}%"></div></div>
+      </div>
+      <div style                                                                  = "font-family:var(--disp);font-size:.74rem;font-weight:700;color:var(--orange);white-space:nowrap">${money(v._rev)}</div>
+    </div>`).join(''):'<div class="empty-state"><div class="ei">🏪</div>No vendor data yet</div>';
+  const onlineP                                                                   = _partners.filter(p=>p.isOnline);
+  document.getElementById('ov-online-partners').innerHTML=onlineP.length?onlineP.slice(0,6).map(p=>{
+    const st                                                                      = partnerStatus(p);const activeOrd=partnerActiveOrder(p);
+    return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
+      <div style                                                                  = "position:relative;width:34px;height:34px;flex-shrink:0">
+        ${p.photo?`<img src="${p.photo}" style="width:34px;height:34px;border-radius:9px;object-fit:cover">`:`<div style="width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,var(--teal),var(--blue));display:flex;align-items:center;justify-content:center;font-family:var(--disp);font-weight:800;font-size:.7rem;color:#fff">${initials((p.firstName||'')+(p.lastName?' '+p.lastName:''))}</div>`}
+        <div style                                                                = "position:absolute;bottom:-1px;right:-1px;width:10px;height:10px;border-radius:50%;background:${st==='busy'?'var(--orange)':'var(--green)'};border:2px solid var(--bg2)"></div>
+      </div>
+      <div style                                                                  = "flex:1;min-width:0">
+        <div style                                                                = "font-size:.78rem;font-weight:600">${p.firstName} ${p.lastName}</div>
+        <div style                                                                = "font-size:.65rem;color:var(--mid)">${vehicleEmoji(p.vehicle)} ${capitalize(p.vehicle)}</div>
+        ${activeOrd?`<div style="font-size:.62rem;color:var(--orange);margin-top:1px">📦 ${activeOrd.productName||'Order'}</div>`:''}
+      </div>
+      <span class                                                                 = "${st==='busy'?'busy-badge':'live-badge'}">${st==='busy'?'<div class="bd"></div>Delivering':'<div class="ld"></div>Idle'}</span>
+    </div>`;
+  }).join('')+(onlineP.length>6?`<div style="text-align:center;padding:8px;font-size:.72rem;color:var(--teal);cursor:pointer" onclick="go('partners')">+${onlineP.length-6} more →</div>`:'')
+                                                                                  : '<div class="empty-state"><div class="ei">🛵</div>No partners online</div>';
+  const recent                                                                    = _orders.slice(0,12);
+  document.getElementById('ov-orders-tb').innerHTML=recent.length?recent.map((o,i)=>{
+    const partner                                                                 = o.deliveryPartnerId?_partners.find(p=>p.id===o.deliveryPartnerId):null;
+    return `<tr>
+      <td style                                                                   = "color:var(--mid)">${i+1}</td>
+      <td><div style                                                              = "font-weight:600">${o.productName||'—'}</div><div style="font-size:.62rem;color:var(--mid)">${o.area||''}</div></td>
+      <td style                                                                   = "font-size:.76rem">${o.shopName||'—'}</td>
+      <td><div style                                                              = "font-size:.76rem">${o.customerName||o.phone||'—'}</div><div style="font-size:.6rem;color:var(--mid)">${o.phone||''}</div></td>
+      <td style                                                                   = "font-family:var(--disp);font-weight:700;color:var(--orange)">${money(o.total)}</td>
+      <td>${partner?`<div style="display:flex;align-items:center;gap:5px">${partner.photo?`<img src="${partner.photo}" style="width:22px;height:22px;border-radius:6px;object-fit:cover">`:`<div style="width:22px;height:22px;border-radius:6px;background:var(--teal);display:flex;align-items:center;justify-content:center;font-size:.5rem;font-weight:800;color:#fff">${initials((partner.firstName||'')+(partner.lastName?' '+partner.lastName:''))}</div>`}<span style="font-size:.72rem">${partner.firstName} ${partner.lastName}</span></div>`:'<span style="color:var(--dim);font-size:.7rem">Unassigned</span>'}</td>
+      <td><span class                                                             = "pill ${STATUS_PILL[o.status]||'dim'}">${o.status||'—'}</span></td>
+      <td style                                                                   = "font-size:.68rem;color:var(--mid)">${fmtT(o.orderedAt)}</td>
+    </tr>`;
+  }).join(''):'<tr><td colspan="8" class="empty-state">No orders yet</td></tr>';
+}
+
+function renderOverviewPartnerStats(){
+  const total                                                                     = _partners.length,online=_partners.filter(p=>p.isOnline).length,busy=_partners.filter(p=>p.activeOrderId).length;
+  const earn                                                                      = _partners.reduce((s,p)=>s+(p.totalEarnings||0),0),deliveries=_partners.reduce((s,p)=>s+(p.completedOrders||0),0);
+  document.getElementById('ov-dp-total').textContent=total;document.getElementById('ov-dp-online').textContent=online;
+  document.getElementById('ov-dp-busy').textContent=busy;document.getElementById('ov-dp-earn').textContent=money(earn);
+  document.getElementById('ov-dp-deliveries').textContent=deliveries;
+}
+
+// ════════════════════════════════════════════════
+//  DELIVERY PARTNERS
+// ════════════════════════════════════════════════
+let _dpFilter2                                                                    = 'all';
+function setDPF(f,el){_dpFilter2                                                  = f;document.querySelectorAll('#panel-partners .fc').forEach(c=>c.classList.remove('active'));el?.classList.add('active');renderPartners();}
+
+function renderPartners(){
+  const total                                                                     = _partners.length,online=_partners.filter(p=>p.isOnline).length,busy=_partners.filter(p=>p.activeOrderId).length;
+  const totalEarnings                                                             = _partners.reduce((s,p)=>s+(p.totalEarnings||0),0);
+  document.getElementById('dp-total').textContent=total;document.getElementById('dp-online').textContent=online;
+  document.getElementById('dp-busy').textContent=busy;document.getElementById('dp-payout').textContent=money(totalEarnings);
+  const q                                                                         = (document.getElementById('dp-search')?.value||'').toLowerCase();
+  const vf                                                                        = document.getElementById('dp-vehicle-filter')?.value||'';
+  let list=[..._partners].filter(p=>{
+    if(_dpFilter2==='online'&&!p.isOnline)return false;
+    if(_dpFilter2==='busy'&&!p.activeOrderId)return false;
+    if(_dpFilter2==='offline'&&(p.isOnline||p.activeOrderId))return false;
+    if(vf&&p.vehicle!==vf)return false;
+    const name                                                                    = (p.firstName||'')+' '+(p.lastName||'');
+    if(q&&!(name+p.phone+p.vehicle).toLowerCase().includes(q))return false;
+    return true;
+  });
+  list.sort((a,b)=>{const sa=a.activeOrderId?2:a.isOnline?1:0,sb=b.activeOrderId?2:b.isOnline?1:0;return sb-sa;});
+  const el                                                                        = document.getElementById('partners-list');
+  if(!list.length){el.innerHTML='<div class="empty-state"><div class="ei">🛵</div>No partners found</div>';return;}
+  el.innerHTML=list.map(p=>{
+    const st                                                                      = partnerStatus(p),activeOrd=partnerActiveOrder(p),pOrders=partnerOrders(p.id);
+    return `<div class="dp-card ${st==='busy'?'busy-card':st==='online'?'online-card':''}" onclick="openPartnerModal('${p.id}')">
+      <div class                                                                  = "dp-photo">
+        ${p.photo?`<img src="${p.photo}" alt="">`:`${initials((p.firstName||'?')+' '+(p.lastName||'?'))}`}
+        <div class                                                                = "dp-status-dot ${st}"></div>
+      </div>
+      <div class                                                                  = "dp-info">
+        <div style                                                                = "display:flex;align-items:center;gap:8px;margin-bottom:4px">
+          <div class                                                              = "dp-name">${p.firstName||'—'} ${p.lastName||''}</div>
+          ${st==='busy'?`<div class="busy-badge"><div class="bd"></div>On Delivery</div>`:st==='online'?`<div class="live-badge"><div class="ld"></div>Online</div>`:`<div class="offline-badge">Offline</div>`}
+        </div>
+        <div class                                                                = "dp-meta">
+          <span>${vehicleEmoji(p.vehicle)} ${capitalize(p.vehicle||'—')}</span>
+          <span>📞 ${p.phone||'—'}</span>
+          <span>⭐ ${(p.rating||5.0).toFixed(1)}</span>
+          <span>📅 Joined ${fmtD(p.joinedAt)}</span>
+        </div>
+        <div style                                                                = "display:flex;gap:12px;font-size:.72rem">
+          <span style                                                             = "color:var(--green);font-weight:600">✅ ${p.completedOrders||0} deliveries</span>
+          <span style                                                             = "color:var(--orange);font-weight:600">💰 ${money(p.totalEarnings||0)} earned</span>
+        </div>
+        ${activeOrd?`<div class="dp-active-order"><div class="aol">⚡ Active Order</div><div class="aov">${activeOrd.productName||'Order'} → ${activeOrd.deliveryAddress||'Customer'}</div></div>`:''}
+      </div>
+      <div class                                                                  = "dp-stats">
+        <div class                                                                = "dp-stat-item"><div class="dsv">${p.completedOrders||0}</div><div class="dsl">Deliveries</div></div>
+        <div class                                                                = "dp-stat-item" style="margin-top:8px"><div class="dsv" style="color:var(--teal)">${money(p.totalEarnings||0)}</div><div class="dsl">Earned</div></div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function openPartnerModal(partnerId){
+  const p                                                                         = _partners.find(x=>x.id===partnerId);if(!p)return;
+  const st                                                                        = partnerStatus(p),pOrders=partnerOrders(p.id).sort((a,b)=>new Date(b.orderedAt||0)-new Date(a.orderedAt||0));
+  const activeOrd                                                                 = partnerActiveOrder(p),totalEarned=p.totalEarnings||0,completed=p.completedOrders||0;
+  document.getElementById('mp-name').textContent=(p.firstName||'—')+' '+(p.lastName||'');
+  document.getElementById('mp-sub').textContent=`${vehicleEmoji(p.vehicle)} ${capitalize(p.vehicle||'—')} · ${p.phone||'—'} · Joined ${fmtD(p.joinedAt)}`;
+  document.getElementById('mp-body').innerHTML=`
+    <div style                                                                    = "display:flex;gap:16px;align-items:flex-start;margin-bottom:16px;flex-wrap:wrap">
+      <div style                                                                  = "flex-shrink:0">
+        ${p.photo?`<img src="${p.photo}" style="width:80px;height:80px;border-radius:14px;object-fit:cover;border:2px solid var(--border2)">`:`<div style="width:80px;height:80px;border-radius:14px;background:linear-gradient(135deg,var(--teal),var(--blue));display:flex;align-items:center;justify-content:center;font-family:var(--disp);font-weight:800;font-size:1.4rem;color:#fff">${initials((p.firstName||'?')+' '+(p.lastName||'?'))}</div>`}
+        <div style                                                                = "text-align:center;margin-top:6px">
+          ${st==='busy'?`<div class="busy-badge" style="justify-content:center"><div class="bd"></div>On Delivery</div>`:st==='online'?`<div class="live-badge" style="justify-content:center"><div class="ld"></div>Online</div>`:`<div class="offline-badge" style="justify-content:center">Offline</div>`}
+        </div>
+      </div>
+      <div style                                                                  = "flex:1;min-width:0">
+        <div style                                                                = "display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px">
+          <div style                                                              = "background:var(--bg3);border-radius:9px;padding:12px;text-align:center"><div style="font-family:var(--disp);font-size:1.3rem;font-weight:800;color:var(--teal)">${money(totalEarned)}</div><div style="font-size:.62rem;color:var(--mid);margin-top:2px">Total Earned</div></div>
+          <div style                                                              = "background:var(--bg3);border-radius:9px;padding:12px;text-align:center"><div style="font-family:var(--disp);font-size:1.3rem;font-weight:800;color:var(--green)">${completed}</div><div style="font-size:.62rem;color:var(--mid);margin-top:2px">Deliveries</div></div>
+          <div style                                                              = "background:var(--bg3);border-radius:9px;padding:12px;text-align:center"><div style="font-family:var(--disp);font-size:1.3rem;font-weight:800;color:var(--orange)">⭐ ${(p.rating||5.0).toFixed(1)}</div><div style="font-size:.62rem;color:var(--mid);margin-top:2px">Rating</div></div>
+        </div>
+        <div class                                                                = "info-row"><span class="ir-k">Phone</span><span class="ir-v">${p.phone||'—'}</span></div>
+        <div class                                                                = "info-row"><span class="ir-k">Vehicle</span><span class="ir-v">${vehicleEmoji(p.vehicle)} ${capitalize(p.vehicle||'—')}</span></div>
+        <div class                                                                = "info-row"><span class="ir-k">Status</span><span class="ir-v"><span class="pill ${st==='busy'?'orange':st==='online'?'green':'dim'}">${st}</span></span></div>
+        ${p.lat&&p.lng?`<div class="info-row"><span class="ir-k">Location</span><span class="ir-v" style="font-family:monospace;font-size:.7rem">${p.lat.toFixed(5)}, ${p.lng.toFixed(5)}</span></div>`:''}
+      </div>
+    </div>
+    ${activeOrd?`<div style="background:linear-gradient(135deg,rgba(245,158,11,.12),rgba(245,158,11,.06));border:1px solid rgba(245,158,11,.3);border-radius:12px;padding:14px;margin-bottom:14px">
+      <div style                                                                  = "font-size:.6rem;font-weight:700;color:var(--orange);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px">⚡ Active Order</div>
+      <div style                                                                  = "font-weight:700;font-size:.88rem;margin-bottom:3px">${activeOrd.productName||'Order'}</div>
+      <div style                                                                  = "font-size:.72rem;color:var(--mid)">🏪 ${activeOrd.shopName||'—'} → 🏠 ${activeOrd.deliveryAddress||'—'}</div>
+    </div>`:''}
+    <div style                                                                    = "font-family:var(--disp);font-size:.58rem;font-weight:700;color:var(--mid);letter-spacing:.1em;margin-bottom:8px">DELIVERY HISTORY (${pOrders.length})</div>
+    <div class                                                                    = "tbl-wrap scrollable"><table class="dt">
+      <thead><tr><th>#</th><th>Product</th><th>Vendor</th><th>Earnings</th><th>Status</th><th>Date</th></tr></thead>
+      <tbody>${pOrders.length?pOrders.map((o,i)=>`<tr>
+        <td style                                                                 = "color:var(--mid)">${i+1}</td>
+        <td style                                                                 = "font-weight:600">${o.productName||'—'}</td>
+        <td style                                                                 = "font-size:.74rem">${o.shopName||'—'}</td>
+        <td style                                                                 = "font-family:var(--disp);font-weight:700;color:var(--teal)">₹${Math.round(20+(o.deliveryKm||2)*6)}</td>
+        <td><span class                                                           = "pill ${STATUS_PILL[o.status]||'dim'}">${o.status||'—'}</span></td>
+        <td style                                                                 = "font-size:.65rem;color:var(--mid)">${fmtD(o.orderedAt)}</td>
+      </tr>`).join(''):'<tr><td colspan="6" class="empty-state">No deliveries yet</td></tr>'}
+      </tbody>
+    </table></div>
+    <div style                                                                    = "display:flex;gap:8px;margin-top:14px"><a href="tel:${p.phone}" class="btn btn-t btn-sm">📞 Call Partner</a></div>`;
+  document.getElementById('mo-partner').classList.add('show');
+}
+
+// ════════════════════════════════════════════════
+//  LIVE MAP
+// ════════════════════════════════════════════════
+function initLiveMap(){
+  const el                                                                        = document.getElementById('live-map');if(!el)return;
+  if(!_liveMap){
+    _liveMap                                                                      = L.map('live-map',{zoomControl:true,attributionControl:false}).setView([11.0168,76.9558],13);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(_liveMap);
+  }
+  updateLiveMapMarkers();
+}
+function updateLiveMapMarkers(){
+  if(!_liveMap)return;
+  Object.values(_liveMarkers).forEach(m=>m.remove());_liveMarkers={};
+  _partners.forEach(p=>{
+    if(!p.lat||!p.lng)return;
+    const st                                                                      = partnerStatus(p),color=st==='busy'?'#F59E0B':st==='online'?'#10B981':'#374151';
+    const ico                                                                     = L.divIcon({className:'',html:`<div style="position:relative;width:38px;height:38px">${p.photo?`<img src="${p.photo}" style="width:38px;height:38px;border-radius:50%;object-fit:cover;border:3px solid ${color};box-shadow:0 3px 12px rgba(0,0,0,.4)">`:`<div style="width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,#14B8A6,#2563EB);border:3px solid ${color};display:flex;align-items:center;justify-content:center;font-weight:900;font-size:.7rem;color:#fff;box-shadow:0 3px 12px rgba(0,0,0,.4)">${initials((p.firstName||'?')+' '+(p.lastName||'?'))}</div>`}<div style="position:absolute;bottom:0;right:0;width:12px;height:12px;border-radius:50%;background:${color};border:2px solid #0D0F1A"></div></div>`,iconSize:[38,38],iconAnchor:[19,19]});
+    const marker                                                                  = L.marker([p.lat,p.lng],{icon:ico}).addTo(_liveMap);
+    const activeOrd                                                               = partnerActiveOrder(p);
+    marker.bindPopup(`<div style="font-family:sans-serif;min-width:140px"><div style="font-weight:700;margin-bottom:4px">${p.firstName} ${p.lastName}</div><div style="font-size:.72rem;color:#666">${vehicleEmoji(p.vehicle)} ${capitalize(p.vehicle||'')}</div><div style="font-size:.7rem;color:${color};font-weight:700;margin-top:3px">${st==='busy'?'📦 On Delivery':st==='online'?'🟢 Idle':'⚫ Offline'}</div>${activeOrd?`<div style="font-size:.7rem;margin-top:4px">Delivering: ${activeOrd.productName||'Order'}</div>`:''}</div>`);
+    _liveMarkers[p.id]                                                            = marker;
+  });
+}
+function renderMapPartnerList(){
+  const online                                                                    = _partners.filter(p=>p.isOnline);
+  document.getElementById('map-online-count').textContent=online.length+' online';
+  document.getElementById('map-partner-list').innerHTML=online.length?online.map(p=>{
+    const st                                                                      = partnerStatus(p),activeOrd=partnerActiveOrder(p);
+    return `<div style="display:flex;align-items:center;gap:10px;padding:8px;background:var(--bg3);border-radius:10px;cursor:pointer" onclick="openPartnerModal('${p.id}')">
+      <div style                                                                  = "position:relative;flex-shrink:0">${p.photo?`<img src="${p.photo}" style="width:38px;height:38px;border-radius:9px;object-fit:cover">`:`<div style="width:38px;height:38px;border-radius:9px;background:linear-gradient(135deg,var(--teal),var(--blue));display:flex;align-items:center;justify-content:center;font-weight:800;font-size:.7rem;color:#fff;font-family:var(--disp)">${initials(p.firstName+' '+p.lastName)}</div>`}
+      <div style                                                                  = "position:absolute;bottom:-1px;right:-1px;width:10px;height:10px;border-radius:50%;background:${st==='busy'?'var(--orange)':'var(--green)'};border:2px solid var(--bg2)"></div></div>
+      <div style                                                                  = "flex:1;min-width:0"><div style="font-weight:600;font-size:.8rem">${p.firstName} ${p.lastName}</div><div style="font-size:.65rem;color:var(--mid)">${vehicleEmoji(p.vehicle)} · ⭐${(p.rating||5).toFixed(1)}</div>${activeOrd?`<div style="font-size:.62rem;color:var(--orange);margin-top:1px">📦 ${activeOrd.productName||'Delivery'}</div>`:''}</div>
+      ${p.lat&&p.lng?`<button class="btn btn-g btn-xs" onclick="event.stopPropagation();_liveMap&&_liveMap.flyTo([${p.lat},${p.lng}],16)">📍</button>`:''}
+    </div>`;
+  }).join(''):'<div class="empty-state"><div class="ei">😴</div>No partners online</div>';
+}
+
+// ════════════════════════════════════════════════
+//  APPROVALS
+// ════════════════════════════════════════════════
+function setAF(f,el){_afFilter                                                    = f;document.querySelectorAll('#panel-approvals .fc').forEach(c=>c.classList.remove('active'));el?.classList.add('active');renderApprovals();}
+function renderApprovals(q){
+  if(q!==undefined)_afSearch=q;
+  let list=_shops.filter(s=>{
+    const st                                                                      = s.adminStatus||'pending';
+    if(_afFilter!=='all'&&st!==_afFilter)return false;
+    if(_afSearch&&!(s.name+s.category+s.address+s.vendorEmail).toLowerCase().includes(_afSearch.toLowerCase()))return false;
+    return true;
+  });
+  const el                                                                        = document.getElementById('approvals-list');
+  if(!list.length){el.innerHTML='<div class="empty-state"><div class="ei">🔍</div>No vendors found.</div>';return;}
+  el.innerHTML=list.map(s=>{
+    const st                                                                      = s.adminStatus||'pending',docs=s.docs||{};
+    const docKeys                                                                 = [['gst-cert','GST'],['shop-cert','Shop Cert'],['fssai-cert','FSSAI'],['trade-license','Trade Lic']];
+    const docTags                                                                 = docKeys.map(([k,lbl])=>`<span class="doc-t ${docs[k]?'ok':'no'}">${lbl} ${docs[k]?'✓':'✗'}</span>`).join(' ');
+    const docCount                                                                = docKeys.filter(([k])=>docs[k]).length;
+    const actions                                                                 = st==='pending'?`<button class="btn btn-s btn-sm" onclick="approveShop('${s.id}')">✅ Approve</button>`:st==='approved'?`<button class="btn btn-g btn-sm" onclick="changeShopStatus('${s.id}','suspended')">🚫 Suspend</button>`:`<button class="btn btn-w btn-sm" onclick="approveShop('${s.id}')">↩ Re-approve</button>`;
+    return `<div class="vcard">
+      <div style                                                                  = "display:flex;align-items:flex-start;gap:13px">
+        <div class                                                                = "avatar" style="width:42px;height:42px;background:${colorFor(s.id,2)};font-size:.9rem">${initials(s.name)}</div>
+        <div style                                                                = "flex:1;min-width:0">
+          <div style                                                              = "font-family:var(--disp);font-size:.8rem;font-weight:700;margin-bottom:3px">${s.name||'Unnamed'}</div>
+          <div style                                                              = "font-size:.7rem;color:var(--mid);display:flex;gap:10px;flex-wrap:wrap;margin-bottom:7px">
+            <span>🏷️ ${s.category||'—'}</span><span>📍 ${s.address||'—'}</span><span>📧 ${s.vendorEmail||'—'}</span><span>📅 ${fmtD(s.createdAt)}</span>
+          </div>
+          <div style                                                              = "display:flex;gap:5px;flex-wrap:wrap;margin-bottom:9px">${docTags}<span style="font-size:.62rem;color:${docCount>=3?'var(--green)':'var(--orange)'};margin-left:4px;font-weight:700">${docCount}/4 docs</span></div>
+          <div style                                                              = "display:flex;gap:7px;align-items:center;flex-wrap:wrap">
+            ${actions}
+            <button class                                                         = "btn btn-g btn-sm" onclick="openVendorModal('${s.id}')">📊 Orders</button>
+            <span class                                                           = "pill ${st==='approved'?'green':st==='pending'?'orange':'red'}">${st}</span>
+          </div>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+function approveShop(id){C.shops().doc(id).update({adminStatus                    : 'approved',approvedAt:now()}).then(()=>toast('✅ Vendor approved!')).catch(e=>toast('Error: '+e.message,'err'));}
+function changeShopStatus(id,status){C.shops().doc(id).update({adminStatus        : status,updatedAt:now()}).then(()=>toast('Status: '+status,'warn')).catch(e=>toast('Error: '+e.message,'err'));}
+
+// ════════════════════════════════════════════════
+//  ALL VENDORS
+// ════════════════════════════════════════════════
+function renderVendors(){
+  const q                                                                         = (document.getElementById('v-search')?.value||'').toLowerCase();
+  const cat                                                                       = document.getElementById('v-cat')?.value||'';
+  const st                                                                        = document.getElementById('v-status')?.value||'';
+  let list                                                                        = _shops.filter(s=>(!q||(s.name+s.address+s.vendorEmail+s.category).toLowerCase().includes(q))&&(!cat||s.category===cat)&&(!st||(s.adminStatus||'pending')===st));
+  const ovf                                                                       = document.getElementById('o-vf');
+  if(ovf&&ovf.options.length<=1){_shops.forEach(s=>{const o=document.createElement('option');o.value=s.id;o.textContent=s.name;ovf.appendChild(o);});}
+  const tb                                                                        = document.getElementById('vendors-tb');
+  if(!list.length){tb.innerHTML='<tr><td colspan="9" class="empty-state">No vendors found</td></tr>';return;}
+  tb.innerHTML=list.map(s=>{
+    const ords                                                                    = vendorOrders(s.id),rev=vendorRevenue(s.id),prods=vendorProductCount(s.id);
+    const st2                                                                     = s.adminStatus||'pending',commRate=_commRates[s.category]||10,commission=Math.round(rev*commRate/100);
+    return `<tr>
+      <td><div style                                                              = "display:flex;align-items:center;gap:8px"><div class="avatar" style="background:${colorFor(s.id,1)};font-size:.68rem">${initials(s.name)}</div><div><div style="font-weight:600;font-size:.8rem">${s.name||'—'}</div><div style="font-size:.62rem;color:var(--mid)">${s.vendorEmail||'—'}</div></div></div></td>
+      <td><span class                                                             = "pill dim">${s.category||'—'}</span></td>
+      <td style                                                                   = "font-size:.72rem;color:var(--mid)">${s.address||'—'}</td>
+      <td style                                                                   = "font-family:var(--disp);font-weight:700">${prods}</td>
+      <td style                                                                   = "font-family:var(--disp);font-weight:700;color:var(--blue-l)">${ords.length}</td>
+      <td style                                                                   = "font-family:var(--disp);font-weight:700;color:var(--orange)">${money(rev)}</td>
+      <td style                                                                   = "font-size:.72rem;color:var(--green);font-weight:600">${money(commission)}<br><span style="color:var(--mid)">(${commRate}%)</span></td>
+      <td><span class                                                             = "pill ${st2==='approved'?'green':st2==='pending'?'orange':'red'}">${st2}</span></td>
+      <td><div style                                                              = "display:flex;gap:5px">
+        <button class                                                             = "btn btn-g btn-xs" onclick="openVendorModal('${s.id}')">📊</button>
+        ${st2==='pending'?`<button class="btn btn-s btn-xs" onclick="approveShop('${s.id}')">✓</button>`:''}
+        ${st2==='approved'?`<button class="btn btn-xs" style="background:var(--red-pale);color:var(--red);border:1px solid var(--red)" onclick="changeShopStatus('${s.id}','suspended')">🚫</button>`:`<button class="btn btn-s btn-xs" onclick="approveShop('${s.id}')">↩</button>`}
+      </div></td>
+    </tr>`;
+  }).join('');
+}
+
+function openVendorModal(shopId){
+  const s                                                                         = _shops.find(x=>x.id===shopId);if(!s)return;
+  const ords                                                                      = vendorOrders(shopId).slice().sort((a,b)=>new Date(b.orderedAt||0)-new Date(a.orderedAt||0));
+  const rev                                                                       = vendorRevenue(shopId),prods=vendorProductCount(shopId);
+  const statusCounts                                                              = {};ords.forEach(o=>{statusCounts[o.status]=(statusCounts[o.status]||0)+1;});
+  document.getElementById('mv-name').textContent=s.name||'Vendor';
+  document.getElementById('mv-sub').textContent=(s.category||'—')+' · '+(s.address||'—');
+  document.getElementById('mv-body').innerHTML=`
+    <div class                                                                    = "two-col" style="margin-bottom:12px">
+      <div>
+        <div class                                                                = "info-row"><span class="ir-k">Email</span><span class="ir-v">${s.vendorEmail||'—'}</span></div>
+        <div class                                                                = "info-row"><span class="ir-k">Phone</span><span class="ir-v">${s.phone||'—'}</span></div>
+        <div class                                                                = "info-row"><span class="ir-k">Status</span><span class="ir-v"><span class="pill ${(s.adminStatus||'pending')==='approved'?'green':'orange'}">${s.adminStatus||'pending'}</span></span></div>
+        <div class                                                                = "info-row"><span class="ir-k">Joined</span><span class="ir-v">${fmtD(s.createdAt)}</span></div>
+      </div>
+      <div style                                                                  = "display:flex;flex-direction:column;gap:7px">
+        <div style                                                                = "background:var(--bg3);border-radius:9px;padding:11px;text-align:center"><div style="font-family:var(--disp);font-size:1.3rem;font-weight:800;color:var(--orange)">${money(rev)}</div><div style="font-size:.62rem;color:var(--mid);margin-top:2px">Revenue</div></div>
+        <div style                                                                = "display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px">
+          <div style                                                              = "background:var(--bg3);border-radius:7px;padding:8px;text-align:center"><div style="font-family:var(--disp);font-size:.9rem;font-weight:800;color:var(--blue-l)">${ords.length}</div><div style="font-size:.58rem;color:var(--mid)">Orders</div></div>
+          <div style                                                              = "background:var(--bg3);border-radius:7px;padding:8px;text-align:center"><div style="font-family:var(--disp);font-size:.9rem;font-weight:800;color:var(--green)">${prods}</div><div style="font-size:.58rem;color:var(--mid)">Products</div></div>
+          <div style                                                              = "background:var(--bg3);border-radius:7px;padding:8px;text-align:center"><div style="font-family:var(--disp);font-size:.9rem;font-weight:800;color:var(--cyan)">${ords.filter(o=>o.status==='Delivered').length}</div><div style="font-size:.58rem;color:var(--mid)">Delivered</div></div>
+        </div>
+      </div>
+    </div>
+    <div style                                                                    = "display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px">${Object.entries(statusCounts).map(([s2,c])=>`<span class="pill ${STATUS_PILL[s2]||'dim'}">${s2}: ${c}</span>`).join('')}</div>
+    <div class                                                                    = "tbl-wrap scrollable"><table class="dt"><thead><tr><th>#</th><th>Product</th><th>Customer</th><th>Partner</th><th>Amount</th><th>Status</th><th>Date</th></tr></thead>
+      <tbody>${ords.length?ords.map((o,i)=>{
+        const partner                                                             = o.deliveryPartnerId?_partners.find(p=>p.id===o.deliveryPartnerId):null;
+        return `<tr><td style="color:var(--mid)">${i+1}</td><td style="font-weight:600">${o.productName||'—'}</td><td>${o.customerName||'—'}</td>
+        <td style                                                                 = "font-size:.72rem">${partner?`${vehicleEmoji(partner.vehicle)} ${partner.firstName} ${partner.lastName}`:'<span style="color:var(--dim)">—</span>'}</td>
+        <td style                                                                 = "font-family:var(--disp);font-weight:700;color:var(--orange)">${money(o.total)}</td>
+        <td><span class                                                           = "pill ${STATUS_PILL[o.status]||'dim'}">${o.status||'—'}</span></td>
+        <td style                                                                 = "font-size:.65rem;color:var(--mid)">${fmtD(o.orderedAt)}</td></tr>`;
+      }).join(''):'<tr><td colspan="7" class="empty-state">No orders yet</td></tr>'}
+      </tbody></table></div>`;
+  document.getElementById('mo-vendor').classList.add('show');
+}
+
+// ════════════════════════════════════════════════
+//  COMMISSION
+// ════════════════════════════════════════════════
+function renderCommission(){
+  const cats                                                                      = Object.keys(_commRates);
+  document.getElementById('comm-editor').innerHTML=cats.map(cat=>`
+    <div style                                                                    = "display:flex;align-items:center;gap:10px;padding:9px 12px;background:var(--bg3);border-radius:8px;margin-bottom:6px">
+      <div style                                                                  = "font-size:.78rem;font-weight:600;flex:1">${cat}</div>
+      <input type                                                                 = "number" class="fi" style="width:65px;text-align:center;padding:5px 8px;margin:0" min="0" max="50" step="0.5" value="${_commRates[cat]||10}" id="cr-${encodeURIComponent(cat)}" oninput="_commRates['${cat}']=+this.value;updateCommOverview()">
+      <span style                                                                 = "color:var(--mid);font-size:.8rem">%</span>
+    </div>`).join('');
+  updateCommOverview();
+}
+function updateCommOverview(){
+  document.getElementById('comm-overview').innerHTML=Object.entries(_commRates).map(([cat,rate])=>`
+    <div style                                                                    = "background:var(--bg3);border-radius:9px;padding:12px">
+      <div style                                                                  = "font-size:.6rem;font-weight:700;color:var(--mid);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">${cat}</div>
+      <div style                                                                  = "font-family:var(--disp);font-size:1.5rem;font-weight:800;color:var(--orange)">${rate}<span style="font-size:.8rem;color:var(--mid)">%</span></div>
+    </div>`).join('');
+  const total=_orders.filter(o=>o.status!=='Cancelled').reduce((s,o)=>{
+    const sh                                                                      = _shops.find(x=>x.id===o.shopId||x.id===o.vendorId);
+    return s+(o.total||0)*(_commRates[sh?.category||'Other']||10)/100;
+  },0);
+  document.getElementById('proj-comm').textContent=money(Math.round(total));
+}
+function saveCommission(){
+  C.config().doc('settings').set({commission:_commRates,deliveryTiers:_deliveryTiers,freeDeliveryMin:_freeDeliveryMin},{merge:true})
+    .then(()=>toast('✅ Commission rates saved!')).catch(e=>toast('Error: '+e.message,'err'));
+}
+
+// ════════════════════════════════════════════════
+//  DELIVERY CHARGES
+// ════════════════════════════════════════════════
+function renderDelivery(){
+  document.getElementById('del-editor').innerHTML=_deliveryTiers.map((t,i)=>`
+    <div style                                                                    = "display:flex;align-items:center;gap:8px;margin-bottom:7px;background:var(--bg3);border-radius:8px;padding:9px 12px">
+      <input class                                                                = "fi" style="width:100px;margin:0;padding:6px 9px" type="text" value="${t.range}" onchange="_deliveryTiers[${i}].range=this.value;renderDelVisual()">
+      <span style                                                                 = "color:var(--mid);font-size:.8rem;flex-shrink:0">₹</span>
+      <input class                                                                = "fi" style="width:65px;margin:0;padding:6px 9px;text-align:center;color:var(--cyan);font-weight:700" type="number" value="${t.charge}" onchange="_deliveryTiers[${i}].charge=+this.value;renderDelVisual()">
+      <button class                                                               = "btn btn-d btn-xs" onclick="_deliveryTiers.splice(${i},1);renderDelivery()">✕</button>
+    </div>`).join('');
+  document.getElementById('free-min').value=_freeDeliveryMin;
+  renderDelVisual();
+}
+function renderDelVisual(){
+  const maxC                                                                      = Math.max(..._deliveryTiers.map(t=>t.charge),1);
+  document.getElementById('del-visual').innerHTML=_deliveryTiers.map(t=>`
+    <div style                                                                    = "display:flex;align-items:center;gap:10px;background:var(--bg3);border-radius:9px;padding:12px 14px;margin-bottom:7px">
+      <div style                                                                  = "font-family:var(--disp);font-size:.78rem;font-weight:700;color:var(--cyan);min-width:76px">${t.range}</div>
+      <div style                                                                  = "flex:1;height:5px;background:var(--bg);border-radius:3px;overflow:hidden"><div style="height:100%;width:${Math.round(t.charge/maxC*100)}%;background:linear-gradient(90deg,var(--cyan),var(--blue));border-radius:3px"></div></div>
+      <div style                                                                  = "font-family:var(--disp);font-size:.85rem;font-weight:700;min-width:50px;text-align:right">${money(t.charge)}</div>
+    </div>`).join('');
+}
+function addTier(){_deliveryTiers.push({range                                     : '15–20 km',charge:90});renderDelivery();}
+function saveDelivery(){
+  _freeDeliveryMin                                                                = +document.getElementById('free-min').value||500;
+  C.config().doc('settings').set({commission:_commRates,deliveryTiers:_deliveryTiers,freeDeliveryMin:_freeDeliveryMin},{merge:true})
+    .then(()=>toast('✅ Delivery tiers saved!')).catch(e=>toast('Error: '+e.message,'err'));
+}
+
+// ════════════════════════════════════════════════
+//  USERS
+// ════════════════════════════════════════════════
+function setUF(f,el){_ufFilter                                                    = f;document.querySelectorAll('#panel-users .fc').forEach(c=>c.classList.remove('active'));el?.classList.add('active');renderUsers();}
+function buildCustomers(){
+  const map                                                                       = {};
+  _orders.forEach(o=>{
+    const key                                                                     = o.phone||o.customerId||o.customerName;if(!key)return;
+    if(!map[key])map[key]={id:key,type:'customer',name:o.customerName||'Unknown',phone:o.phone||'—',area:o.area||(o.deliveryAddress?.split(',')[0])||'—',orders:0,spent:0,status:'active'};
+    map[key].orders++;if(o.status!=='Cancelled')map[key].spent+=(o.total||0);
+  });
+  return Object.values(map);
+}
+function renderUsers(){
+  const q                                                                         = (document.getElementById('u-search')?.value||'').toLowerCase();
+  const customers                                                                 = buildCustomers();
+  const vendorUsers                                                               = _shops.map(s=>({id:s.id,type:'vendor',name:s.name||'—',phone:s.phone||'—',email:s.vendorEmail||'—',area:s.address||'—',orders:vendorOrders(s.id).length,spent:vendorRevenue(s.id),status:s.adminStatus||'pending'}));
+  let all                                                                         = [...((_ufFilter==='vendor'||_ufFilter==='all')?vendorUsers:[]),...((_ufFilter==='customer'||_ufFilter==='all')?customers:[])];
+  if(q)all=all.filter(u=>(u.name+u.phone+(u.email||'')+u.area).toLowerCase().includes(q));
+  document.getElementById('u-total').textContent=customers.length+_shops.length;
+  document.getElementById('u-customers').textContent=customers.length;
+  document.getElementById('u-vendors').textContent=_shops.length;
+  document.getElementById('u-sus').textContent=_shops.filter(s=>s.adminStatus==='suspended').length;
+  const tb                                                                        = document.getElementById('users-tb');
+  if(!all.length){tb.innerHTML='<tr><td colspan="8" class="empty-state">No users found</td></tr>';return;}
+  tb.innerHTML                                                                    = all.map(u=>`<tr>
+    <td><div style                                                                = "display:flex;align-items:center;gap:8px"><div class="avatar" style="background:${u.type==='vendor'?colorFor(u.id,3):'linear-gradient(135deg,var(--purple),var(--cyan))'};font-size:.68rem;border-radius:${u.type==='vendor'?'8px':'50%'}">${initials(u.name)}</div><div style="font-weight:600;font-size:.8rem">${u.name}</div></div></td>
+    <td><span class                                                               = "pill ${u.type==='vendor'?'orange':'cyan'}">${u.type}</span></td>
+    <td style                                                                     = "font-size:.72rem;color:var(--mid)">${u.phone}${u.email?'<br><span style="font-size:.62rem">'+u.email+'</span>':''}</td>
+    <td style                                                                     = "font-size:.72rem;color:var(--mid)">${u.area}</td>
+    <td style                                                                     = "font-family:var(--disp);font-weight:700;color:var(--blue-l)">${u.orders}</td>
+    <td style                                                                     = "font-family:var(--disp);font-weight:700;color:var(--orange)">${money(u.spent)}</td>
+    <td><span class                                                               = "pill ${u.status==='active'||u.status==='approved'?'green':u.status==='suspended'?'red':'orange'}">${u.status}</span></td>
+    <td><button class                                                             = "btn btn-g btn-xs" onclick="openUserModal('${u.id}','${u.type}')">👁 View</button></td>
+  </tr>`).join('');
+}
+
+function openUserModal(id,type){
+  const isVendor                                                                  = type==='vendor';let orders=[],entity;
+  if(isVendor){
+    entity                                                                        = _shops.find(x=>x.id===id);if(!entity)return;
+    orders                                                                        = vendorOrders(id).slice().sort((a,b)=>new Date(b.orderedAt||0)-new Date(a.orderedAt||0));
+    document.getElementById('mu-name').textContent=entity.name||'Vendor';
+    document.getElementById('mu-sub').textContent='Vendor · '+fmtD(entity.createdAt);
+  }else{
+    const customers                                                               = buildCustomers();entity=customers.find(x=>x.id===id);if(!entity)return;
+    orders                                                                        = _orders.filter(o=>o.phone===id||o.customerId===id||o.customerName===entity.name).slice().sort((a,b)=>new Date(b.orderedAt||0)-new Date(a.orderedAt||0));
+    document.getElementById('mu-name').textContent=entity.name||'Customer';
+    document.getElementById('mu-sub').textContent='Customer Account';
+  }
+  const totalSpent                                                                = orders.filter(o=>o.status!=='Cancelled').reduce((s,o)=>s+(o.total||0),0);
+  document.getElementById('mu-body').innerHTML=`
+    <div style                                                                    = "display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px;margin-bottom:12px">
+      <div style                                                                  = "background:var(--bg3);border-radius:8px;padding:10px;text-align:center"><div style="font-family:var(--disp);font-size:1.1rem;font-weight:800;color:var(--orange)">${money(totalSpent)}</div><div style="font-size:.6rem;color:var(--mid);margin-top:2px">${isVendor?'Revenue':'Spent'}</div></div>
+      <div style                                                                  = "background:var(--bg3);border-radius:8px;padding:10px;text-align:center"><div style="font-family:var(--disp);font-size:1.1rem;font-weight:800;color:var(--blue-l)">${orders.length}</div><div style="font-size:.6rem;color:var(--mid);margin-top:2px">Orders</div></div>
+      <div style                                                                  = "background:var(--bg3);border-radius:8px;padding:10px;text-align:center"><div style="font-family:var(--disp);font-size:1.1rem;font-weight:800;color:var(--green)">${orders.filter(o=>o.status==='Delivered').length}</div><div style="font-size:.6rem;color:var(--mid);margin-top:2px">Delivered</div></div>
+    </div>
+    <div class                                                                    = "tbl-wrap scrollable"><table class="dt"><thead><tr><th>Product</th><th>${isVendor?'Customer':'Vendor'}</th><th>Amount</th><th>Status</th><th>Date</th></tr></thead>
+      <tbody>${orders.length?orders.map(o=>`<tr>
+        <td style                                                                 = "font-weight:600">${o.productName||'—'}</td>
+        <td style                                                                 = "font-size:.74rem">${isVendor?(o.customerName||o.phone||'—'):(o.shopName||'—')}</td>
+        <td style                                                                 = "font-family:var(--disp);font-weight:700;color:var(--orange)">${money(o.total)}</td>
+        <td><span class                                                           = "pill ${STATUS_PILL[o.status]||'dim'}">${o.status||'—'}</span></td>
+        <td style                                                                 = "font-size:.65rem;color:var(--mid)">${fmtD(o.orderedAt)}</td>
+      </tr>`).join(''):'<tr><td colspan="5" class="empty-state">No orders</td></tr>'}
+      </tbody></table></div>`;
+  document.getElementById('mo-user').classList.add('show');
+}
+
+// ════════════════════════════════════════════════
+//  ORDERS
+// ════════════════════════════════════════════════
+function renderOrders(){
+  const q                                                                         = (document.getElementById('o-search')?.value||'').toLowerCase();
+  const sf                                                                        = document.getElementById('o-sf')?.value||'';
+  const vf                                                                        = document.getElementById('o-vf')?.value||'';
+  let list                                                                        = _orders.slice();
+  if(sf)list=list.filter(o=>o.status===sf);
+  if(vf)list=list.filter(o=>o.shopId===vf||o.vendorId===vf);
+  if(q)list=list.filter(o=>(o.productName+o.shopName+o.customerName+o.deliveryAddress+o.phone+(o.deliveryPartnerName||'')).toLowerCase().includes(q));
+  document.getElementById('os-confirmed').textContent=_orders.filter(o=>o.status==='Confirmed').length;
+  document.getElementById('os-packed').textContent=_orders.filter(o=>o.status==='Packed').length;
+  document.getElementById('os-transit').textContent=_orders.filter(o=>['Shipped','Ready for Pickup','Picked Up','Out for Delivery'].includes(o.status)).length;
+  document.getElementById('os-del').textContent=_orders.filter(o=>o.status==='Delivered').length;
+  const tb                                                                        = document.getElementById('orders-tb');
+  if(!list.length){tb.innerHTML='<tr><td colspan="8" class="empty-state">No orders found</td></tr>';return;}
+  tb.innerHTML=list.map((o,i)=>{
+    const partner                                                                 = o.deliveryPartnerId?_partners.find(p=>p.id===o.deliveryPartnerId):null;
+    return `<tr>
+      <td style                                                                   = "color:var(--mid)">${i+1}</td>
+      <td><div style                                                              = "font-weight:600">${o.productName||'—'}</div><div style="font-size:.6rem;color:var(--mid)">×${o.qty||1}</div></td>
+      <td style                                                                   = "font-size:.76rem;font-weight:600">${o.shopName||'—'}</td>
+      <td><div style                                                              = "font-size:.76rem">${o.customerName||'—'}</div><div style="font-size:.6rem;color:var(--mid)">${o.phone||''}</div></td>
+      <td style                                                                   = "font-family:var(--disp);font-weight:700;color:var(--orange)">${money(o.total)}</td>
+      <td>${partner?`<div style="display:flex;align-items:center;gap:5px;font-size:.72rem">${vehicleEmoji(partner.vehicle)} ${partner.firstName} ${partner.lastName}</div>`:'<span style="font-size:.7rem;color:var(--dim)">Unassigned</span>'}</td>
+      <td><span class                                                             = "pill ${STATUS_PILL[o.status]||'dim'}">${o.status||'—'}</span></td>
+      <td style                                                                   = "font-size:.65rem;color:var(--mid)">${fmtD(o.orderedAt)}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ════════════════════════════════════════════════
+//  REFUNDS
+// ════════════════════════════════════════════════
+function openAddRefund(){document.getElementById('mo-refund').classList.add('show');}
+function submitRefund(){
+  const cname                                                                     = document.getElementById('rf-cname').value.trim(),prod=document.getElementById('rf-prod').value.trim();
+  const vendor                                                                    = document.getElementById('rf-vendor').value.trim(),amt=+document.getElementById('rf-amt').value;
+  const reason                                                                    = document.getElementById('rf-reason').value;
+  if(!cname||!prod||!amt){toast('Fill all required fields','err');return;}
+  C.refunds().add({customerName                                                   : cname,product:prod,vendorName:vendor,amount:amt,reason,status:'pending',requestedAt:now()})
+    .then(()=>{toast('Refund logged');closeM('mo-refund');['rf-cname','rf-prod','rf-vendor','rf-amt'].forEach(id=>document.getElementById(id).value='');})
+    .catch(e=>toast('Error: '+e.message,'err'));
+}
+function renderRefunds(){
+  document.getElementById('rf-p').textContent=_refunds.filter(r=>r.status==='pending').length;
+  document.getElementById('rf-a').textContent=_refunds.filter(r=>r.status==='approved').length;
+  const el                                                                        = document.getElementById('refunds-list');
+  if(!_refunds.length){el.innerHTML='<div class="empty-state"><div class="ei">✅</div>No refund requests.</div>';return;}
+  el.innerHTML                                                                    = [..._refunds].sort((a,b)=>new Date(b.requestedAt||0)-new Date(a.requestedAt||0)).map(r=>`
+    <div style                                                                    = "background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:13px 15px;margin-bottom:7px;display:flex;align-items:center;gap:13px;flex-wrap:wrap">
+      <div style                                                                  = "flex:1;min-width:0">
+        <div style                                                                = "font-size:.58rem;font-weight:700;color:var(--mid);text-transform:uppercase;letter-spacing:.07em;margin-bottom:2px">REF#${(r.id||'').slice(-6).toUpperCase()}</div>
+        <div style                                                                = "font-size:.84rem;font-weight:600;margin-bottom:3px">${r.product||'—'} — ${r.customerName||'—'}</div>
+        <div style                                                                = "font-size:.7rem;color:var(--mid)">Vendor: ${r.vendorName||'—'} · ${r.reason||'—'}</div>
+        <div style                                                                = "font-size:.65rem;color:var(--dim);margin-top:3px">${fmtD(r.requestedAt)}</div>
+      </div>
+      <div style                                                                  = "text-align:right;flex-shrink:0">
+        <div style                                                                = "font-family:var(--disp);font-size:.95rem;font-weight:800;color:var(--orange)">${money(r.amount)}</div>
+        <div style                                                                = "margin-top:7px">${r.status==='pending'?`<div style="display:flex;gap:5px;justify-content:flex-end"><button class="btn btn-s btn-sm" onclick="processRefund('${r.id}','approved')">✅ Approve</button><button class="btn btn-d btn-sm" onclick="processRefund('${r.id}','rejected')">✗ Reject</button></div>`:`<span class="pill ${r.status==='approved'?'green':'red'}">${r.status}</span>`}</div>
+      </div>
+    </div>`).join('');
+}
+function processRefund(id,status){C.refunds().doc(id).update({status,resolvedAt   : now()}).then(()=>toast(status==='approved'?'✅ Refund approved!':'Rejected',status==='approved'?'ok':'err')).catch(e=>toast('Error: '+e.message,'err'));}
+
+// ════════════════════════════════════════════════
+//  BANNERS
+// ════════════════════════════════════════════════
+function prevBanner(){
+  const t                                                                         = document.getElementById('b-t')?.value||'Banner Title',s=document.getElementById('b-s')?.value||'Subtitle';
+  const c1                                                                        = document.getElementById('b-c1')?.value,c2=document.getElementById('b-c2')?.value;
+  const p                                                                         = document.getElementById('banner-prev');if(p)p.style.background=`linear-gradient(135deg,${c1},${c2})`;
+  const pt                                                                        = document.getElementById('bp-t'),ps=document.getElementById('bp-s');
+  if(pt)pt.textContent=t;if(ps)ps.textContent=s;
+}
+function addBanner(){
+  const t                                                                         = document.getElementById('b-t').value.trim();if(!t){toast('Enter a title','err');return;}
+  C.banners().add({title                                                          : t,sub:document.getElementById('b-s').value,c1:document.getElementById('b-c1').value,c2:document.getElementById('b-c2').value,area:document.getElementById('b-area').value,active:true,createdAt:now()})
+    .then(()=>{toast('🚀 Banner published!');document.getElementById('b-t').value='';document.getElementById('b-s').value='';}).catch(e=>toast('Error: '+e.message,'err'));
+}
+function renderBannersList(){
+  const el                                                                        = document.getElementById('banners-list');
+  if(!_banners.length){el.innerHTML='<div class="empty-state">No banners yet.</div>';return;}
+  el.innerHTML                                                                    = [..._banners].sort((a,b)=>new Date(b.createdAt||0)-new Date(a.createdAt||0)).map(b=>`
+    <div style                                                                    = "background:var(--bg3);border:1px solid var(--border);border-radius:9px;padding:10px 12px;display:flex;align-items:center;gap:9px">
+      <div style                                                                  = "width:34px;height:34px;border-radius:7px;background:linear-gradient(135deg,${b.c1||'#1446A0'},${b.c2||'#F7931E'});flex-shrink:0"></div>
+      <div style                                                                  = "flex:1;min-width:0"><div style="font-size:.8rem;font-weight:600;margin-bottom:1px">${b.title||'—'}</div><div style="font-size:.63rem;color:var(--mid)">${b.area||'All Areas'}</div></div>
+      <span class                                                                 = "pill ${b.active?'green':'dim'}">${b.active?'Live':'Paused'}</span>
+      <button class                                                               = "btn btn-g btn-xs" onclick="toggleBanner('${b.id}',${!b.active})">${b.active?'Pause':'Activate'}</button>
+      <button class                                                               = "btn btn-xs" style="background:var(--red-pale);color:var(--red);border:1px solid var(--red)" onclick="deleteBanner('${b.id}')">✕</button>
+    </div>`).join('');
+}
+function toggleBanner(id,state){C.banners().doc(id).update({active                : state}).then(()=>toast(state?'Activated':'Paused',state?'ok':'info')).catch(e=>toast('Error: '+e.message,'err'));}
+function deleteBanner(id){C.banners().doc(id).delete().then(()=>toast('Banner removed','warn')).catch(e=>toast('Error: '+e.message,'err'));}
+
+// ════════════════════════════════════════════════
+//  ANALYTICS
+// ════════════════════════════════════════════════
+function renderAnalytics(){
+  const validOrds                                                                 = _orders.filter(o=>o.status!=='Cancelled');
+  const totalRev                                                                  = validOrds.reduce((s,o)=>s+(o.total||0),0);
+  const totalQty                                                                  = validOrds.reduce((s,o)=>s+(o.qty||1),0);
+  document.getElementById('an-rev').textContent=money(totalRev);
+  document.getElementById('an-ord').textContent=_orders.length;
+  document.getElementById('an-qty').textContent=totalQty;
+  const areaData=AREAS.map((a,i)=>{
+    const aOrds                                                                   = _orders.filter(o=>o.area===a||(o.deliveryAddress||'').includes(a));
+    const aRev                                                                    = aOrds.filter(o=>o.status!=='Cancelled').reduce((s,o)=>s+(o.total||0),0);
+    return {a,c                                                                   : aOrds.length,rev:aRev,col:PALETTE[i]};
+  }).sort((a,b)=>b.rev-a.rev);
+  document.getElementById('area-cards').innerHTML=areaData.map(a=>`
+    <div class                                                                    = "area-card" style="--ac:${a.col}">
+      <div style                                                                  = "font-family:var(--disp);font-size:.66rem;font-weight:700;margin-bottom:4px">${a.a}</div>
+      <div style                                                                  = "font-size:1rem;font-weight:800;color:var(--orange);font-family:var(--disp)">${a.rev>=1000?(a.rev/1000).toFixed(1)+'k':a.rev}</div>
+      <div style                                                                  = "font-size:.62rem;color:var(--mid);margin-top:2px">${a.c} orders</div>
+    </div>`).join('');
+  const days                                                                      = [];
+  for(let i=6;i>=0;i--){const d=new Date();d.setDate(d.getDate()-i);const k=d.toISOString().slice(0,10);const lbl=d.toLocaleDateString('en-IN',{weekday:'short'});const rev=validOrds.filter(o=>(o.orderedAt||'').slice(0,10)===k).reduce((s,o)=>s+(o.total||0),0);days.push({lbl,rev});}
+  const maxD                                                                      = Math.max(...days.map(d=>d.rev),1);
+  document.getElementById('chart-7d').innerHTML=days.map(d=>`
+    <div class                                                                    = "bc"><div class="bv">${d.rev?'₹'+(d.rev>=1000?(d.rev/1000).toFixed(1)+'k':d.rev):''}</div>
+    <div class                                                                    = "bar" style="height:${Math.max(4,Math.round(d.rev/maxD*110))}px;background:linear-gradient(180deg,var(--orange),var(--orange-l))"></div>
+    <div class                                                                    = "bl">${d.lbl}</div></div>`).join('');
+  const catMap                                                                    = {};
+  validOrds.forEach(o=>{const sh=_shops.find(s=>s.id===o.shopId||s.id===o.vendorId);const cat=sh?.category||o.category||'Other';catMap[cat]=(catMap[cat]||0)+(o.total||0);});
+  const catList                                                                   = Object.entries(catMap).sort((a,b)=>b[1]-a[1]),maxCat=catList[0]?.[1]||1;
+  document.getElementById('chart-cat').innerHTML=catList.map(([cat,rev],i)=>`
+    <div style                                                                    = "display:flex;align-items:center;gap:9px">
+      <div style                                                                  = "font-size:.72rem;font-weight:600;width:140px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${cat}</div>
+      <div style                                                                  = "flex:1;height:6px;background:var(--bg);border-radius:3px;overflow:hidden"><div style="height:100%;width:${Math.round(rev/maxCat*100)}%;background:${PALETTE[i%PALETTE.length]};border-radius:3px"></div></div>
+      <div style                                                                  = "font-family:var(--disp);font-size:.72rem;font-weight:700;color:var(--orange);width:55px;text-align:right">${rev>=1000?(rev/1000).toFixed(1)+'k':money(rev)}</div>
+    </div>`).join('');
+  const topV                                                                      = _shops.map(s=>({...s,_ords:vendorOrders(s.id).length})).sort((a,b)=>b._ords-a._ords).slice(0,6),maxOrd=Math.max(...topV.map(v=>v._ords),1);
+  document.getElementById('chart-vendors').innerHTML=topV.map((v,i)=>`
+    <div class                                                                    = "bc"><div class="bv" style="font-size:.54rem">${v._ords}</div>
+    <div class                                                                    = "bar" style="height:${Math.max(4,Math.round(v._ords/maxOrd*105))}px;background:${PALETTE[i]};opacity:.85"></div>
+    <div class                                                                    = "bl" style="font-size:.52rem;max-width:38px">${(v.name||'—').split(' ')[0]}</div></div>`).join('');
+}
+
+// ════════════════════════════════════════════════
+//  MODALS
+// ════════════════════════════════════════════════
+function closeM(id){document.getElementById(id)?.classList.remove('show');}
+document.querySelectorAll('.overlay').forEach(m=>{m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('show');});});
+</script>
+</body>
+</html>
