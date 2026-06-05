@@ -11,7 +11,6 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -703,7 +702,6 @@ const fbConfig={apiKey:"AIzaSyD3bMVjeXXAYvCeUgvhlT_KrHuhpgohqgU",authDomain:"loc
 firebase.initializeApp(fbConfig);
 const auth=firebase.auth();
 const db=firebase.firestore();
-const storage=firebase.storage();
 
 // ====== LOGIN ======
 const ADMIN_EMAIL='localshoreofficial@gmail.com';
@@ -818,6 +816,10 @@ function onBannerFileSelect(e){const file=e.target.files[0];if(file)processFileF
 function onOfferFileSelect(e){const file=e.target.files[0];if(file)processFileForOffer(file);}
 
 function processFileForBanner(file){
+  // Warn if raw file is very large (videos > 700KB will bloat Firestore)
+  if(file.size > 700*1024 && file.type.startsWith('video/')){
+    toast('⚠ Video is '+formatFileSize(file.size)+' — keep clips under 700 KB for instant publish','warn');
+  }
   const isVideo=file.type.startsWith('video/');
   const reader=new FileReader();
   reader.onload=function(e){
@@ -872,68 +874,86 @@ function clearBannerMedia(){_bannerFileData=null;document.getElementById('banner
 function clearOfferMedia(){_offerFileData=null;document.getElementById('offer-media-preview').style.display='none';document.getElementById('offer-file-input').value='';}
 function formatFileSize(bytes){if(bytes<1024)return bytes+'B';if(bytes<1048576)return(bytes/1024).toFixed(1)+'KB';return(bytes/1048576).toFixed(1)+'MB';}
 
-// Upload file to Firebase Storage and get URL
-async function uploadToStorage(file,folder,onProgress){
-  const ext=file.name.split('.').pop();
-  const path=`${folder}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
-  const ref=storage.ref(path);
-  const task=ref.put(file);
-  return new Promise((resolve,reject)=>{
-    task.on('state_changed',
-      snap=>{const pct=Math.round(snap.bytesTransferred/snap.totalBytes*100);if(onProgress)onProgress(pct);},
-      err=>reject(err),
-      ()=>task.snapshot.ref.getDownloadURL().then(resolve).catch(reject)
-    );
+// ======================================================
+//  INSTANT IMAGE COMPRESSION — no upload, no wait
+//  Compresses images via Canvas to fit within maxPx and
+//  target quality, then returns a small dataURL that goes
+//  straight into Firestore. Publish is instant.
+//  Videos: stored as-is (dataURL) — typically small clips.
+//  Firestore doc limit is 1 MB; images are compressed to ~200 KB.
+// ======================================================
+function compressImageToDataUrl(dataUrl, maxPx, quality){
+  return new Promise(resolve=>{
+    const img=new Image();
+    img.onload=function(){
+      let w=img.naturalWidth, h=img.naturalHeight;
+      // Scale down if larger than maxPx on longest side
+      if(w>maxPx||h>maxPx){
+        if(w>=h){h=Math.round(h*maxPx/w);w=maxPx;}
+        else{w=Math.round(w*maxPx/h);h=maxPx;}
+      }
+      const canvas=document.createElement('canvas');
+      canvas.width=w; canvas.height=h;
+      const ctx=canvas.getContext('2d');
+      ctx.drawImage(img,0,0,w,h);
+      resolve(canvas.toDataURL('image/jpeg', quality));
+    };
+    img.onerror=()=>resolve(dataUrl); // fallback: return original
+    img.src=dataUrl;
   });
 }
 
-// If Firebase Storage fails or not configured, fall back to data URL (stored in Firestore — NOT ideal for large files, but works for demos)
-async function uploadOrFallback(fileData,folder,progFill,progBar){
-  if(!fileData)return null;
-  if(progBar)progBar.style.display='block';
-  try{
-    const url=await uploadToStorage(fileData.file,folder,pct=>{if(progFill)progFill.style.width=pct+'%';});
-    return url;
-  }catch(e){
-    // Fallback: if storage not configured, store the dataURL directly in Firestore (for demos only)
-    console.warn('Storage upload failed, using dataURL fallback:',e.message);
-    if(progFill)progFill.style.width='100%';
-    return fileData.dataUrl;
-  }finally{if(progBar)setTimeout(()=>{progBar.style.display='none';if(progFill)progFill.style.width='0%';},600);}
+// Returns compressed dataUrl ready to store in Firestore instantly
+// Banners: max 1400px wide, quality 0.82  (~150-250 KB)
+// Offers:  max 800px wide,  quality 0.80  (~50-120 KB)
+async function prepareImageForFirestore(fileData, preset){
+  if(!fileData) return null;
+  // Videos: return raw dataUrl (admin should use short clips <500KB)
+  if(fileData.type==='video') return fileData.dataUrl;
+  const {maxPx, quality} = preset==='banner'
+    ? {maxPx:1400, quality:0.82}
+    : {maxPx:800,  quality:0.80};
+  return await compressImageToDataUrl(fileData.dataUrl, maxPx, quality);
 }
 
-// ====== ADD BANNER ======
+// ====== ADD BANNER — INSTANT (compress on device → Firestore, no Storage upload) ======
 async function addBanner(){
   const title=document.getElementById('b-t').value.trim();
   if(!title){toast('Banner title is required','err');return;}
-
   const btn=document.getElementById('banner-save-btn');
-  btn.disabled=true;btn.textContent='⏳ Publishing...';
-
+  const progBar=document.getElementById('banner-save-progress');
+  const progFill=document.getElementById('banner-save-fill');
+  btn.disabled=true;
+  btn.innerHTML='<span class="spin" style="width:12px;height:12px;border-width:2px;margin-right:6px"></span>Publishing…';
   try{
     let bannerDoc={title,sub:document.getElementById('b-s').value,cta:document.getElementById('b-cta').value,link:document.getElementById('b-link').value,tag:document.getElementById('b-tag').value,order:parseInt(document.getElementById('b-order').value)||0,active:true,createdAt:now()};
-
     if(_bannerType==='media'&&_bannerFileData){
       bannerDoc.type=_bannerFileData.type;
       bannerDoc.width=_bannerFileData.width;
       bannerDoc.height=_bannerFileData.height;
       bannerDoc.originalFileName=_bannerFileData.file.name;
       bannerDoc.fileSizeBytes=_bannerFileData.file.size;
-      const url=await uploadOrFallback(_bannerFileData,'banners',document.getElementById('banner-save-fill'),document.getElementById('banner-save-progress'));
+      progBar.style.display='block';
+      progFill.style.transition='width 0.4s ease';
+      progFill.style.width='50%';
+      const url=await prepareImageForFirestore(_bannerFileData,'banner');
+      progFill.style.width='90%';
       bannerDoc.url=url;
     }else{
       bannerDoc.type='gradient';
       bannerDoc.color1=document.getElementById('b-c1').value;
       bannerDoc.color2=document.getElementById('b-c2').value;
     }
-
     await C.banners().add(bannerDoc);
+    if(progFill) progFill.style.width='100%';
     toast('🚀 Banner published!');
-    // Reset form
     document.getElementById('b-t').value='';document.getElementById('b-s').value='';document.getElementById('b-cta').value='';document.getElementById('b-link').value='';document.getElementById('b-tag').value='';document.getElementById('b-order').value='0';
     clearBannerMedia();
   }catch(e){toast('Failed: '+e.message,'err');}
-  finally{btn.disabled=false;btn.textContent='🚀 Publish Banner';}
+  finally{
+    btn.disabled=false;btn.innerHTML='🚀 Publish Banner';
+    setTimeout(()=>{if(progBar)progBar.style.display='none';if(progFill)progFill.style.width='0%';},700);
+  }
 }
 
 // ====== RENDER BANNERS LIST ======
@@ -983,9 +1003,6 @@ function deleteBanner(id,url){
   if(!confirm('Delete this banner?'))return;
   C.banners().doc(id).delete().then(()=>{
     toast('Banner deleted','warn');
-    if(url&&url.startsWith('https://firebasestorage')){
-      storage.refFromURL(url).delete().catch(()=>{});
-    }
   }).catch(e=>toast('Error: '+e.message,'err'));
 }
 function prevBanner(){
@@ -1012,30 +1029,38 @@ function populateShopDropdowns(){
   });
 }
 
+// ====== ADD OFFER — INSTANT (compress on device → Firestore, no Storage upload) ======
 async function addOffer(){
   const name=document.getElementById('o-name').value.trim();
   if(!name){toast('Product name is required','err');return;}
-
   const btn=document.getElementById('offer-save-btn');
-  btn.disabled=true;btn.textContent='⏳ Publishing...';
-
+  const progBar=document.getElementById('offer-save-progress');
+  const progFill=document.getElementById('offer-save-fill');
+  btn.disabled=true;
+  btn.innerHTML='<span class="spin" style="width:12px;height:12px;border-width:2px;margin-right:6px"></span>Publishing…';
   try{
     let offerDoc={name,category:document.getElementById('o-cat').value,price:parseFloat(document.getElementById('o-price').value)||null,originalPrice:parseFloat(document.getElementById('o-orig').value)||null,discount:document.getElementById('o-disc').value,shopId:document.getElementById('o-shopid').value||null,order:parseInt(document.getElementById('o-order').value)||0,active:true,createdAt:now()};
-
     if(_offerFileData){
       offerDoc.width=_offerFileData.width;
       offerDoc.height=_offerFileData.height;
       offerDoc.originalFileName=_offerFileData.file.name;
-      const url=await uploadOrFallback(_offerFileData,'offers',document.getElementById('offer-save-fill'),document.getElementById('offer-save-progress'));
+      progBar.style.display='block';
+      progFill.style.transition='width 0.4s ease';
+      progFill.style.width='50%';
+      const url=await prepareImageForFirestore(_offerFileData,'offer');
+      progFill.style.width='90%';
       offerDoc.image=url;
     }
-
     await C.offers().add(offerDoc);
+    if(progFill) progFill.style.width='100%';
     toast('🚀 Offer published!');
     document.getElementById('o-name').value='';document.getElementById('o-price').value='';document.getElementById('o-orig').value='';document.getElementById('o-disc').value='';document.getElementById('o-order').value='0';
     clearOfferMedia();
   }catch(e){toast('Failed: '+e.message,'err');}
-  finally{btn.disabled=false;btn.textContent='🚀 Publish Offer';}
+  finally{
+    btn.disabled=false;btn.innerHTML='🚀 Publish Offer';
+    setTimeout(()=>{if(progBar)progBar.style.display='none';if(progFill)progFill.style.width='0%';},700);
+  }
 }
 
 function renderOffersList(){
@@ -1067,7 +1092,6 @@ function deleteOffer(id,url){
   if(!confirm('Delete this offer?'))return;
   C.offers().doc(id).delete().then(()=>{
     toast('Offer deleted','warn');
-    if(url&&url.startsWith('https://firebasestorage')){storage.refFromURL(url).delete().catch(()=>{});}
   }).catch(e=>toast('Error: '+e.message,'err'));
 }
 
