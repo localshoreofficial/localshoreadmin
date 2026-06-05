@@ -269,7 +269,7 @@ textarea.fi{resize:vertical;min-height:80px;line-height:1.5}
 .offer-item-price{font-size:.82rem;font-weight:800;color:var(--orange-mid);margin-top:3px}
 .offer-item-actions{display:flex;gap:5px;align-items:center;padding:0 10px;flex-shrink:0}
 
-/* Custom image size indicator */
+/* Size info */
 .size-indicator{background:rgba(255,107,26,.08);border:1px solid rgba(255,107,26,.2);border-radius:8px;padding:8px 12px;font-size:.72rem;color:var(--orange-mid);display:flex;align-items:center;gap:8px;margin-top:8px}
 .size-indicator-icon{font-size:.9rem}
 
@@ -333,6 +333,11 @@ textarea.fi{resize:vertical;min-height:80px;line-height:1.5}
 .notif-item-meta{display:flex;gap:10px;flex-wrap:wrap;align-items:center;font-size:.62rem;color:var(--dim)}
 .notif-item-actions{display:flex;gap:5px;flex-shrink:0;flex-direction:column;align-items:flex-end}
 .nt-promo{background:rgba(255,107,26,.12)}.nt-offer{background:rgba(255,107,26,.12)}.nt-order{background:rgba(37,99,235,.15)}.nt-alert{background:rgba(239,68,68,.15)}.nt-info{background:rgba(16,185,129,.15)}.nt-system{background:rgba(139,92,246,.15)}
+
+/* User detail modal */
+.user-modal-stat{background:var(--bg3);border-radius:9px;padding:12px;text-align:center;flex:1}
+.user-modal-stat .umv{font-family:var(--ff);font-size:1.1rem;font-weight:800}
+.user-modal-stat .uml{font-size:.62rem;color:var(--mid);margin-top:2px}
 
 @media(max-width:1100px){.stat-grid{grid-template-columns:1fr 1fr}.two-col{grid-template-columns:1fr}.notif-type-grid{grid-template-columns:repeat(3,1fr)}}
 @media(max-width:900px){.main{margin-left:0}.sidebar{transform:translateX(-100%)}}
@@ -463,10 +468,21 @@ textarea.fi{resize:vertical;min-height:80px;line-height:1.5}
 
     <!-- USERS -->
     <div class="panel" id="panel-users">
-      <div class="ph"><div class="ph-tag">User Management</div><div class="ph-top"><div class="ph-title">User Management 👥</div></div></div>
-      <div class="stat-grid"><div class="stat-card cyan"><div class="sc-ic">👤</div><div class="sc-val" id="u-total">—</div><div class="sc-label">Total Users</div></div><div class="stat-card green"><div class="sc-ic">🛒</div><div class="sc-val" id="u-customers">—</div><div class="sc-label">Customers</div></div><div class="stat-card orange"><div class="sc-ic">🏪</div><div class="sc-val" id="u-vendors">—</div><div class="sc-label">Vendors</div></div><div class="stat-card red"><div class="sc-ic">🚫</div><div class="sc-val" id="u-sus">0</div><div class="sc-label">Suspended</div></div></div>
-      <div class="filter-bar"><input class="si" id="u-search" placeholder="🔍 Search..." oninput="renderUsers()"><span class="fc active" onclick="setUF('customer',this)">Customers</span><span class="fc" onclick="setUF('vendor',this)">Vendors</span><span class="fc" onclick="setUF('all',this)">All</span></div>
-      <div class="tbl-wrap"><table class="dt"><thead><tr><th>Name</th><th>Type</th><th>Contact</th><th>Orders</th><th>Total Spent</th><th>Status</th><th>Actions</th></tr></thead><tbody id="users-tb"></tbody></table></div>
+      <div class="ph"><div class="ph-tag">User Management</div><div class="ph-top"><div class="ph-title">User Management 👥</div><button class="btn btn-g btn-sm" onclick="exportUsers()">⬇ Export CSV</button></div><div class="ph-sub">Live from Firestore <code style="font-size:.68rem;background:var(--bg3);padding:1px 6px;border-radius:4px;border:1px solid var(--border)">users</code> collection. Suspend or restore access in one click.</div></div>
+      <div class="stat-grid">
+        <div class="stat-card cyan"><div class="sc-ic">👤</div><div class="sc-val" id="u-total">—</div><div class="sc-label">Total Users</div></div>
+        <div class="stat-card green"><div class="sc-ic">🛒</div><div class="sc-val" id="u-customers">—</div><div class="sc-label">Customers</div></div>
+        <div class="stat-card orange"><div class="sc-ic">🏪</div><div class="sc-val" id="u-vendors">—</div><div class="sc-label">Vendors</div></div>
+        <div class="stat-card red"><div class="sc-ic">🚫</div><div class="sc-val" id="u-sus">0</div><div class="sc-label">Suspended</div></div>
+      </div>
+      <div class="filter-bar">
+        <input class="si" id="u-search" placeholder="🔍 Search name, phone, email..." oninput="renderUsers()">
+        <span class="fc active" onclick="setUF('all',this)">All</span>
+        <span class="fc" onclick="setUF('customer',this)">Customers</span>
+        <span class="fc" onclick="setUF('vendor',this)">Vendors</span>
+        <span class="fc" onclick="setUF('suspended',this)">Suspended</span>
+      </div>
+      <div class="tbl-wrap"><table class="dt"><thead><tr><th>Name</th><th>Type</th><th>Contact</th><th>Orders</th><th>Total Spent</th><th>Joined</th><th>Status</th><th>Actions</th></tr></thead><tbody id="users-tb"></tbody></table></div>
     </div>
 
     <!-- ORDERS -->
@@ -484,12 +500,12 @@ textarea.fi{resize:vertical;min-height:80px;line-height:1.5}
       <div id="refunds-list"></div>
     </div>
 
-    <!-- ===== BANNERS — FULL IMAGE UPLOAD ===== -->
+    <!-- BANNERS -->
     <div class="panel" id="panel-banners">
       <div class="ph">
         <div class="ph-tag">Marketing</div>
         <div class="ph-top"><div class="ph-title">Marketing Banners 🖼️</div></div>
-        <div class="ph-sub">Upload images, videos, or create gradient banners. Images/videos display at their natural aspect ratio — no cropping or fixed size.</div>
+        <div class="ph-sub">Upload images, videos, or create gradient banners at full resolution — no size or dimension limits.</div>
       </div>
 
       <div class="stat-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:20px">
@@ -500,11 +516,9 @@ textarea.fi{resize:vertical;min-height:80px;line-height:1.5}
 
       <div class="two-col">
         <div>
-          <!-- Create Banner Card -->
           <div class="card">
             <div class="card-head"><div class="card-title">➕ Create Banner</div></div>
 
-            <!-- Media Type Toggle -->
             <div style="display:flex;gap:7px;margin-bottom:14px">
               <button class="fc active" id="btype-media" onclick="setBannerType('media',this)">📸 Upload Media</button>
               <button class="fc" id="btype-gradient" onclick="setBannerType('gradient',this)">🎨 Gradient</button>
@@ -516,7 +530,7 @@ textarea.fi{resize:vertical;min-height:80px;line-height:1.5}
                 <input type="file" id="banner-file-input" accept="image/*,video/*" onchange="onBannerFileSelect(event)">
                 <div class="upload-zone-icon">📁</div>
                 <div class="upload-zone-title">Click or drag & drop to upload</div>
-                <div class="upload-zone-sub">Your browser will open the file picker on your device</div>
+                <div class="upload-zone-sub">Full resolution · No size limits · All formats supported</div>
                 <div class="upload-zone-types">
                   <span class="upload-type-tag">JPG</span>
                   <span class="upload-type-tag">PNG</span>
@@ -532,7 +546,7 @@ textarea.fi{resize:vertical;min-height:80px;line-height:1.5}
                 <div class="size-indicator" id="banner-size-info">
                   <span class="size-indicator-icon">📐</span>
                   <span id="banner-size-txt">—</span>
-                  <span style="margin-left:auto;font-size:.65rem;color:var(--mid)">Displays at natural size</span>
+                  <span style="margin-left:auto;font-size:.65rem;color:var(--mid)">Full resolution, no compression</span>
                 </div>
                 <div class="upload-progress-bar" id="banner-upload-progress" style="display:none"><div class="upload-progress-fill" id="banner-upload-fill"></div></div>
               </div>
@@ -571,12 +585,12 @@ textarea.fi{resize:vertical;min-height:80px;line-height:1.5}
       </div>
     </div>
 
-    <!-- ===== HOT OFFERS — FULL IMAGE UPLOAD ===== -->
+    <!-- HOT OFFERS -->
     <div class="panel" id="panel-offers">
       <div class="ph">
         <div class="ph-tag">Marketing</div>
         <div class="ph-top"><div class="ph-title">Hot Offers 🏷️</div></div>
-        <div class="ph-sub">Upload product images for the deals carousel on the user homepage. Images display at their natural dimensions.</div>
+        <div class="ph-sub">Upload product images at any resolution — no compression, no limits.</div>
       </div>
 
       <div class="two-col">
@@ -584,18 +598,17 @@ textarea.fi{resize:vertical;min-height:80px;line-height:1.5}
           <div class="card">
             <div class="card-head"><div class="card-title">➕ Create Offer</div></div>
 
-            <!-- Offer Image Upload -->
             <div class="upload-zone" id="offer-upload-zone" ondragover="onDragOver(event,'offer-upload-zone')" ondragleave="onDragLeave('offer-upload-zone')" ondrop="onDrop(event,'offer')">
               <input type="file" id="offer-file-input" accept="image/*" onchange="onOfferFileSelect(event)">
               <div class="upload-zone-icon">📸</div>
               <div class="upload-zone-title">Upload product image</div>
-              <div class="upload-zone-sub">Tap to open file picker · images auto-resize in carousel</div>
+              <div class="upload-zone-sub">Any resolution · No size limits · No compression</div>
               <div class="upload-zone-types"><span class="upload-type-tag">JPG</span><span class="upload-type-tag">PNG</span><span class="upload-type-tag">WebP</span><span class="upload-type-tag">GIF</span></div>
             </div>
 
             <div id="offer-media-preview" style="display:none">
               <div class="media-preview-wrap" id="offer-preview-wrap"></div>
-              <div class="size-indicator" id="offer-size-info"><span class="size-indicator-icon">📐</span><span id="offer-size-txt">—</span><span style="margin-left:auto;font-size:.65rem;color:var(--mid)">Natural size</span></div>
+              <div class="size-indicator" id="offer-size-info"><span class="size-indicator-icon">📐</span><span id="offer-size-txt">—</span><span style="margin-left:auto;font-size:.65rem;color:var(--mid)">Full resolution</span></div>
               <div class="upload-progress-bar" id="offer-upload-progress" style="display:none"><div class="upload-progress-fill" id="offer-upload-fill"></div></div>
             </div>
 
@@ -689,7 +702,16 @@ textarea.fi{resize:vertical;min-height:80px;line-height:1.5}
 
 <!-- MODALS -->
 <div class="overlay" id="mo-vendor"><div class="modal" style="width:660px"><div style="display:flex;justify-content:space-between;margin-bottom:3px"><div class="modal-t" id="mv-name">Vendor</div><button class="mclose" onclick="closeM('mo-vendor')">✕</button></div><div class="modal-s" id="mv-sub"></div><div id="mv-body"></div></div></div>
-<div class="overlay" id="mo-user"><div class="modal"><div style="display:flex;justify-content:space-between;margin-bottom:3px"><div class="modal-t" id="mu-name">User</div><button class="mclose" onclick="closeM('mo-user')">✕</button></div><div class="modal-s" id="mu-sub"></div><div id="mu-body"></div></div></div>
+<div class="overlay" id="mo-user">
+  <div class="modal" style="width:600px">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:3px">
+      <div class="modal-t" id="mu-name">User</div>
+      <button class="mclose" onclick="closeM('mo-user')">✕</button>
+    </div>
+    <div class="modal-s" id="mu-sub"></div>
+    <div id="mu-body"></div>
+  </div>
+</div>
 <div class="overlay" id="mo-partner"><div class="modal" style="width:680px"><div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:3px"><div class="modal-t" id="mp-name">Delivery Partner</div><button class="mclose" onclick="closeM('mo-partner')">✕</button></div><div class="modal-s" id="mp-sub"></div><div id="mp-body"></div></div></div>
 <div class="overlay" id="mo-refund"><div class="modal" style="width:480px"><div style="display:flex;justify-content:space-between;margin-bottom:3px"><div class="modal-t">Log Refund Request</div><button class="mclose" onclick="closeM('mo-refund')">✕</button></div><div class="modal-s">Manually add a customer refund request</div><div class="fg"><label class="fl">Customer Name</label><input class="fi" id="rf-cname" placeholder="Customer name"></div><div class="fg"><label class="fl">Product</label><input class="fi" id="rf-prod" placeholder="Product name"></div><div class="fg"><label class="fl">Vendor</label><input class="fi" id="rf-vendor" placeholder="Shop name"></div><div class="fg"><label class="fl">Amount (₹)</label><input class="fi" type="number" id="rf-amt" placeholder="Order amount"></div><div class="fg"><label class="fl">Reason</label><select class="fi" id="rf-reason"><option>Item damaged on delivery</option><option>Wrong item received</option><option>Not delivered</option><option>Quality issue</option><option>Other</option></select></div><button class="btn btn-p" onclick="submitRefund()" style="width:100%;justify-content:center;margin-top:6px">Submit</button></div></div>
 <div class="overlay" id="mo-del-notif"><div class="modal" style="width:400px;text-align:center"><div style="font-size:2rem;margin-bottom:10px">🗑️</div><div class="modal-t" style="text-align:center">Delete Notification?</div><div class="modal-s" style="text-align:center">Permanently removes the notification from the customer app.</div><div style="display:flex;gap:9px;justify-content:center;margin-top:6px"><button class="btn btn-g" onclick="closeM('mo-del-notif')">Cancel</button><button class="btn btn-d" id="confirm-del-notif-btn">🗑️ Delete</button></div></div></div>
@@ -723,14 +745,14 @@ async function doLogout(){if(!confirm('Sign out?'))return;await auth.signOut();d
 auth.onAuthStateChanged(u=>{if(u&&u.email===ADMIN_EMAIL)showAdminApp(u);});
 
 // ====== STATE ======
-let _shops=[],_products=[],_orders=[],_partners=[],_refunds=[],_banners=[],_offers=[],_notifications=[];
+let _shops=[],_products=[],_orders=[],_partners=[],_refunds=[],_banners=[],_offers=[],_notifications=[],_users=[];
 let _commRates={},_deliveryTiers=[],_freeDeliveryMin=500;
-let _afFilter='pending',_ufFilter='customer',_dpFilter2='all',_nfFilterVal='all';
+let _afFilter='pending',_ufFilter='all',_dpFilter2='all',_nfFilterVal='all';
 let _selectedNotifType='promo',_selectedAudience='all';
 let _liveMap=null,_liveMarkers={};
 let _listeners=[];
 let _bannerType='media';
-let _bannerFileData=null;   // {dataUrl, file, width, height, type}
+let _bannerFileData=null;
 let _offerFileData=null;
 
 const AREAS=['RS Puram','Saibaba Colony','Peelamedu','Gandhipuram','Ukkadam','Singanallur','Vadavalli','Hopes College','Tidel Park'];
@@ -738,7 +760,7 @@ const PALETTE=['#FF6B1A','#10B981','#3B82F6','#8B5CF6','#EF4444','#06B6D4','#F97
 const STATUS_PILL={Confirmed:'orange',Packed:'purple',Shipped:'blue','Picked Up':'cyan','Out for Delivery':'orange',Delivered:'green',Cancelled:'red'};
 const NOTIF_TYPE_META={promo:{icon:'🎁',cls:'nt-promo',color:'var(--orange-mid)',label:'Promo'},offer:{icon:'🏷️',cls:'nt-offer',color:'var(--orange-mid)',label:'Offer'},order:{icon:'📦',cls:'nt-order',color:'var(--blue-l)',label:'Order'},alert:{icon:'⚠️',cls:'nt-alert',color:'var(--red)',label:'Alert'},info:{icon:'ℹ️',cls:'nt-info',color:'var(--green)',label:'Info'},system:{icon:'🔧',cls:'nt-system',color:'var(--purple)',label:'System'}};
 
-const C={shops:()=>db.collection('shops'),products:()=>db.collection('products'),orders:()=>db.collection('orders'),partners:()=>db.collection('delivery_partners'),refunds:()=>db.collection('admin_refunds'),config:()=>db.collection('admin_config'),banners:()=>db.collection('admin_banners'),offers:()=>db.collection('admin_offers'),notifications:()=>db.collection('notifications')};
+const C={shops:()=>db.collection('shops'),products:()=>db.collection('products'),orders:()=>db.collection('orders'),partners:()=>db.collection('delivery_partners'),refunds:()=>db.collection('admin_refunds'),config:()=>db.collection('admin_config'),banners:()=>db.collection('admin_banners'),offers:()=>db.collection('admin_offers'),notifications:()=>db.collection('notifications'),users:()=>db.collection('users')};
 const now=()=>new Date().toISOString();
 const fmtD=d=>d?new Date(d).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}):'—';
 const fmtT=d=>d?new Date(d).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}):'—';
@@ -765,6 +787,19 @@ function startListeners(){
   _listeners.push(C.banners().onSnapshot(snap=>{_banners=[];snap.forEach(d=>_banners.push({id:d.id,...d.data()}));if(document.getElementById('panel-banners').classList.contains('active'))renderBannersList();updateBannerStats();},()=>{}));
   _listeners.push(C.offers().onSnapshot(snap=>{_offers=[];snap.forEach(d=>_offers.push({id:d.id,...d.data()}));if(document.getElementById('panel-offers').classList.contains('active'))renderOffersList();populateShopDropdowns();},()=>{}));
   _listeners.push(C.notifications().orderBy('createdAt','desc').limit(100).onSnapshot(snap=>{_notifications=[];snap.forEach(d=>_notifications.push({id:d.id,...d.data()}));updateBadges();if(document.getElementById('panel-notifications').classList.contains('active'))renderNotifs();},()=>{C.notifications().onSnapshot(snap=>{_notifications=[];snap.forEach(d=>_notifications.push({id:d.id,...d.data()}));_notifications.sort((a,b)=>new Date(b.createdAt||0)-new Date(a.createdAt||0));updateBadges();if(document.getElementById('panel-notifications').classList.contains('active'))renderNotifs();},()=>{});}));
+  // ===== USERS COLLECTION LISTENER =====
+  _listeners.push(C.users().onSnapshot(snap=>{
+    _users=[];
+    snap.forEach(d=>_users.push({id:d.id,...d.data()}));
+    _users.sort((a,b)=>new Date(b.createdAt||b.joinedAt||0)-new Date(a.createdAt||a.joinedAt||0));
+    if(document.getElementById('panel-users').classList.contains('active'))renderUsers();
+    updateUserStats();
+  },err=>{
+    // If users collection doesn't exist yet, start empty
+    console.warn('Users collection not found or no permission:',err.message);
+    _users=[];
+    if(document.getElementById('panel-users').classList.contains('active'))renderUsers();
+  }));
   _listeners.push(C.config().doc('settings').onSnapshot(snap=>{if(snap.exists){const d=snap.data();if(d.commission)_commRates=d.commission;if(d.deliveryTiers)_deliveryTiers=d.deliveryTiers;if(d.freeDeliveryMin)_freeDeliveryMin=d.freeDeliveryMin;}else{_commRates={'General Store':8,'Fruits & Vegetables':5,'Electronics':12,'Medical / Pharmacy':6,'Fashion & Clothing':14,'Food & Sweets':10,'Bakery':9,'Other':10};_deliveryTiers=[{range:'0–3 km',charge:20},{range:'3–6 km',charge:35},{range:'6–10 km',charge:50},{range:'10–15 km',charge:70}];}_if_active('commission',renderCommission);_if_active('delivery-charges',renderDelivery);},()=>{_commRates={'General Store':8,'Fruits & Vegetables':5,'Electronics':12,'Medical / Pharmacy':6,'Fashion & Clothing':14,'Food & Sweets':10,'Bakery':9,'Other':10};_deliveryTiers=[{range:'0–3 km',charge:20},{range:'3–6 km',charge:35},{range:'6–10 km',charge:50},{range:'10–15 km',charge:70}];}));
 }
 function _if_active(panel,fn){if(document.getElementById('panel-'+panel)?.classList.contains('active'))fn();}
@@ -798,7 +833,8 @@ function go(n){
 function updateBadges(){document.getElementById('bd-approvals').textContent=_shops.filter(s=>!s.adminStatus||s.adminStatus==='pending').length;document.getElementById('bd-orders').textContent=_orders.filter(o=>o.status==='Confirmed').length;document.getElementById('bd-refunds').textContent=_refunds.filter(r=>r.status==='pending').length;document.getElementById('bd-partners').textContent=_partners.filter(p=>p.isOnline).length;document.getElementById('bd-notifs').textContent=_notifications.filter(n=>n.active!==false).length;}
 
 // ======================================================
-//  BANNER IMAGE UPLOAD — FULL DEVICE FILE PICKER
+//  BANNER IMAGE UPLOAD — NO COMPRESSION, NO LIMITS
+//  Full-resolution dataURLs stored directly in Firestore.
 // ======================================================
 function setBannerType(type,el){
   _bannerType=type;
@@ -816,10 +852,6 @@ function onBannerFileSelect(e){const file=e.target.files[0];if(file)processFileF
 function onOfferFileSelect(e){const file=e.target.files[0];if(file)processFileForOffer(file);}
 
 function processFileForBanner(file){
-  // Warn if raw file is very large (videos > 700KB will bloat Firestore)
-  if(file.size > 700*1024 && file.type.startsWith('video/')){
-    toast('⚠ Video is '+formatFileSize(file.size)+' — keep clips under 700 KB for instant publish','warn');
-  }
   const isVideo=file.type.startsWith('video/');
   const reader=new FileReader();
   reader.onload=function(e){
@@ -843,7 +875,7 @@ function processFileForBanner(file){
         const w=img.naturalWidth,h=img.naturalHeight;
         _bannerFileData={dataUrl,file,type:'image',width:w,height:h};
         prevWrap.innerHTML=`<img class="media-preview-img" src="${dataUrl}" alt="Preview"><button class="media-preview-remove" onclick="clearBannerMedia()">✕</button><div class="media-preview-info"><span>${file.name} · ${formatFileSize(file.size)}</span><span class="media-preview-dim">${w}×${h}px</span></div>`;
-        document.getElementById('banner-size-txt').textContent=`${w}×${h}px · ${formatFileSize(file.size)} · Image`;
+        document.getElementById('banner-size-txt').textContent=`${w}×${h}px · ${formatFileSize(file.size)} · Full Res`;
       };
       img.src=dataUrl;
     }
@@ -863,7 +895,7 @@ function processFileForOffer(file){
       const prevWrap=document.getElementById('offer-preview-wrap');
       prevArea.style.display='block';
       prevWrap.innerHTML=`<img class="media-preview-img" src="${dataUrl}" alt="Preview" style="max-height:200px;object-fit:contain;background:var(--bg4);"><button class="media-preview-remove" onclick="clearOfferMedia()">✕</button><div class="media-preview-info"><span>${file.name} · ${formatFileSize(file.size)}</span><span class="media-preview-dim">${w}×${h}px</span></div>`;
-      document.getElementById('offer-size-txt').textContent=`${w}×${h}px · ${formatFileSize(file.size)}`;
+      document.getElementById('offer-size-txt').textContent=`${w}×${h}px · ${formatFileSize(file.size)} · Full Res`;
     };
     img.src=dataUrl;
   };
@@ -875,48 +907,16 @@ function clearOfferMedia(){_offerFileData=null;document.getElementById('offer-me
 function formatFileSize(bytes){if(bytes<1024)return bytes+'B';if(bytes<1048576)return(bytes/1024).toFixed(1)+'KB';return(bytes/1048576).toFixed(1)+'MB';}
 
 // ======================================================
-//  INSTANT IMAGE COMPRESSION — no upload, no wait
-//  Compresses images via Canvas to fit within maxPx and
-//  target quality, then returns a small dataURL that goes
-//  straight into Firestore. Publish is instant.
-//  Videos: stored as-is (dataURL) — typically small clips.
-//  Firestore doc limit is 1 MB; images are compressed to ~200 KB.
+//  NO COMPRESSION — return raw dataUrl as-is
+//  No size limits, no resolution limits, no quality reduction.
 // ======================================================
-function compressImageToDataUrl(dataUrl, maxPx, quality){
-  return new Promise(resolve=>{
-    const img=new Image();
-    img.onload=function(){
-      let w=img.naturalWidth, h=img.naturalHeight;
-      // Scale down if larger than maxPx on longest side
-      if(w>maxPx||h>maxPx){
-        if(w>=h){h=Math.round(h*maxPx/w);w=maxPx;}
-        else{w=Math.round(w*maxPx/h);h=maxPx;}
-      }
-      const canvas=document.createElement('canvas');
-      canvas.width=w; canvas.height=h;
-      const ctx=canvas.getContext('2d');
-      ctx.drawImage(img,0,0,w,h);
-      resolve(canvas.toDataURL('image/jpeg', quality));
-    };
-    img.onerror=()=>resolve(dataUrl); // fallback: return original
-    img.src=dataUrl;
-  });
-}
-
-// Returns compressed dataUrl ready to store in Firestore instantly
-// Banners: max 1400px wide, quality 0.82  (~150-250 KB)
-// Offers:  max 800px wide,  quality 0.80  (~50-120 KB)
-async function prepareImageForFirestore(fileData, preset){
+async function prepareImageForFirestore(fileData){
   if(!fileData) return null;
-  // Videos: return raw dataUrl (admin should use short clips <500KB)
-  if(fileData.type==='video') return fileData.dataUrl;
-  const {maxPx, quality} = preset==='banner'
-    ? {maxPx:1400, quality:0.82}
-    : {maxPx:800,  quality:0.80};
-  return await compressImageToDataUrl(fileData.dataUrl, maxPx, quality);
+  // Return raw dataUrl — no compression, no resize, no quality reduction
+  return fileData.dataUrl;
 }
 
-// ====== ADD BANNER — INSTANT (compress on device → Firestore, no Storage upload) ======
+// ====== ADD BANNER ======
 async function addBanner(){
   const title=document.getElementById('b-t').value.trim();
   if(!title){toast('Banner title is required','err');return;}
@@ -935,15 +935,16 @@ async function addBanner(){
       bannerDoc.fileSizeBytes=_bannerFileData.file.size;
       progBar.style.display='block';
       progFill.style.transition='width 0.4s ease';
-      progFill.style.width='50%';
-      const url=await prepareImageForFirestore(_bannerFileData,'banner');
-      progFill.style.width='90%';
+      progFill.style.width='40%';
+      const url=await prepareImageForFirestore(_bannerFileData);
+      progFill.style.width='80%';
       bannerDoc.url=url;
     }else{
       bannerDoc.type='gradient';
       bannerDoc.color1=document.getElementById('b-c1').value;
       bannerDoc.color2=document.getElementById('b-c2').value;
     }
+    progFill.style.width='95%';
     await C.banners().add(bannerDoc);
     if(progFill) progFill.style.width='100%';
     toast('🚀 Banner published!');
@@ -991,7 +992,7 @@ function renderBannersList(){
           <button class="btn btn-g btn-xs" onclick="moveBannerOrder('${b.id}',${(b.order||0)-1})">↑ Up</button>
           <button class="btn btn-g btn-xs" onclick="moveBannerOrder('${b.id}',${(b.order||0)+1})">↓ Down</button>
           <button class="btn btn-g btn-xs" onclick="toggleBanner('${b.id}',${!b.active})">${b.active?'⏸ Pause':'▶ Activate'}</button>
-          <button class="btn btn-xs" style="background:var(--red-pale);color:var(--red);border:1px solid var(--red)" onclick="deleteBanner('${b.id}','${b.url||''}')">🗑️ Delete</button>
+          <button class="btn btn-xs" style="background:var(--red-pale);color:var(--red);border:1px solid var(--red)" onclick="deleteBanner('${b.id}')">🗑️ Delete</button>
         </div>
       </div>
     </div>`;
@@ -999,12 +1000,7 @@ function renderBannersList(){
 }
 function moveBannerOrder(id,newOrder){C.banners().doc(id).update({order:newOrder}).then(()=>toast('Order updated')).catch(e=>toast('Error: '+e.message,'err'));}
 function toggleBanner(id,state){C.banners().doc(id).update({active:state}).then(()=>toast(state?'▶ Banner activated':'⏸ Banner paused',state?'ok':'info')).catch(e=>toast('Error: '+e.message,'err'));}
-function deleteBanner(id,url){
-  if(!confirm('Delete this banner?'))return;
-  C.banners().doc(id).delete().then(()=>{
-    toast('Banner deleted','warn');
-  }).catch(e=>toast('Error: '+e.message,'err'));
-}
+function deleteBanner(id){if(!confirm('Delete this banner?'))return;C.banners().doc(id).delete().then(()=>toast('Banner deleted','warn')).catch(e=>toast('Error: '+e.message,'err'));}
 function prevBanner(){
   const t=document.getElementById('b-t')?.value||'Banner Title';
   const s=document.getElementById('b-s')?.value||'Subtitle';
@@ -1016,9 +1012,7 @@ function prevBanner(){
   if(pt)pt.textContent=t;if(ps)ps.textContent=s;
 }
 
-// ======================================================
-//  OFFERS UPLOAD
-// ======================================================
+// ====== OFFERS ======
 function populateShopDropdowns(){
   ['o-shopid','n-shopid'].forEach(selId=>{
     const sel=document.getElementById(selId);if(!sel)return;
@@ -1029,7 +1023,6 @@ function populateShopDropdowns(){
   });
 }
 
-// ====== ADD OFFER — INSTANT (compress on device → Firestore, no Storage upload) ======
 async function addOffer(){
   const name=document.getElementById('o-name').value.trim();
   if(!name){toast('Product name is required','err');return;}
@@ -1046,11 +1039,12 @@ async function addOffer(){
       offerDoc.originalFileName=_offerFileData.file.name;
       progBar.style.display='block';
       progFill.style.transition='width 0.4s ease';
-      progFill.style.width='50%';
-      const url=await prepareImageForFirestore(_offerFileData,'offer');
-      progFill.style.width='90%';
+      progFill.style.width='40%';
+      const url=await prepareImageForFirestore(_offerFileData);
+      progFill.style.width='80%';
       offerDoc.image=url;
     }
+    progFill.style.width='95%';
     await C.offers().add(offerDoc);
     if(progFill) progFill.style.width='100%';
     toast('🚀 Offer published!');
@@ -1082,18 +1076,13 @@ function renderOffersList(){
       <div class="offer-item-actions">
         <span class="pill ${o.active?'green':'dim'}" style="font-size:.56rem">${o.active?'Live':'Off'}</span>
         <button class="btn btn-g btn-xs" onclick="toggleOffer('${o.id}',${!o.active})">${o.active?'⏸':'▶'}</button>
-        <button class="btn btn-xs" style="background:var(--red-pale);color:var(--red);border:1px solid var(--red)" onclick="deleteOffer('${o.id}','${o.image||''}')">🗑️</button>
+        <button class="btn btn-xs" style="background:var(--red-pale);color:var(--red);border:1px solid var(--red)" onclick="deleteOffer('${o.id}')">🗑️</button>
       </div>
     </div>`;
   }).join('');
 }
 function toggleOffer(id,state){C.offers().doc(id).update({active:state}).then(()=>toast(state?'▶ Offer activated':'⏸ Offer paused',state?'ok':'info')).catch(e=>toast('Error: '+e.message,'err'));}
-function deleteOffer(id,url){
-  if(!confirm('Delete this offer?'))return;
-  C.offers().doc(id).delete().then(()=>{
-    toast('Offer deleted','warn');
-  }).catch(e=>toast('Error: '+e.message,'err'));
-}
+function deleteOffer(id){if(!confirm('Delete this offer?'))return;C.offers().doc(id).delete().then(()=>toast('Offer deleted','warn')).catch(e=>toast('Error: '+e.message,'err'));}
 
 // ====== HELPERS ======
 function vendorOrders(shopId){return _orders.filter(o=>o.shopId===shopId||o.vendorId===shopId);}
@@ -1181,7 +1170,7 @@ function renderPartners(){
   list.sort((a,b)=>{const sa=a.activeOrderId?2:a.isOnline?1:0,sb=b.activeOrderId?2:b.isOnline?1:0;return sb-sa;});
   const el=document.getElementById('partners-list');
   if(!list.length){el.innerHTML='<div class="empty-state"><div class="ei">🛵</div>No partners found</div>';return;}
-  el.innerHTML=list.map(p=>{const st=partnerStatus(p),activeOrd=partnerActiveOrder(p);
+  el.innerHTML=list.map(p=>{const st=partnerStatus(p);
     return `<div class="dp-card ${st==='busy'?'busy-card':st==='online'?'online-card':''}" onclick="openPartnerModal('${p.id}')">
       <div class="dp-photo">${p.photo?`<img src="${p.photo}" alt="">`:`${initials((p.firstName||'?')+' '+(p.lastName||'?'))}`}<div class="dp-status-dot ${st}"></div></div>
       <div class="dp-info"><div style="display:flex;align-items:center;gap:8px;margin-bottom:4px"><div class="dp-name">${p.firstName||'—'} ${p.lastName||''}</div>${st==='busy'?`<div class="busy-badge"><div class="bd"></div>On Delivery</div>`:st==='online'?`<div class="live-badge"><div class="ld"></div>Online</div>`:`<div class="offline-badge">Offline</div>`}</div><div class="dp-meta"><span>${vehicleEmoji(p.vehicle)} ${capitalize(p.vehicle||'—')}</span><span>📞 ${p.phone||'—'}</span><span>⭐ ${(p.rating||5.0).toFixed(1)}</span></div><div style="display:flex;gap:12px;font-size:.72rem"><span style="color:var(--green);font-weight:600">✅ ${p.completedOrders||0} deliveries</span><span style="color:var(--orange-mid);font-weight:600">💰 ${money(p.totalEarnings||0)} earned</span></div></div>
@@ -1196,16 +1185,216 @@ function initLiveMap(){const el=document.getElementById('live-map');if(!el)retur
 function updateLiveMapMarkers(){if(!_liveMap)return;Object.values(_liveMarkers).forEach(m=>m.remove());_liveMarkers={};_partners.forEach(p=>{if(!p.lat||!p.lng)return;const st=partnerStatus(p),color=st==='busy'?'#FF6B1A':st==='online'?'#10B981':'#374151';const ico=L.divIcon({className:'',html:`<div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#14B8A6,#0B2D6B);border:3px solid ${color};display:flex;align-items:center;justify-content:center;font-weight:900;font-size:.7rem;color:#fff">${initials((p.firstName||'?')+' '+(p.lastName||'?'))}</div>`,iconSize:[34,34],iconAnchor:[17,17]});const marker=L.marker([p.lat,p.lng],{icon:ico}).addTo(_liveMap);marker.bindPopup(`<b>${p.firstName} ${p.lastName}</b><br>${capitalize(p.vehicle||'')}`);_liveMarkers[p.id]=marker;});}
 function renderMapPartnerList(){const online=_partners.filter(p=>p.isOnline);document.getElementById('map-online-count').textContent=online.length+' online';document.getElementById('map-partner-list').innerHTML=online.length?online.map(p=>`<div style="display:flex;align-items:center;gap:10px;padding:8px;background:var(--bg3);border-radius:10px;cursor:pointer;border:1px solid var(--border)" onclick="openPartnerModal('${p.id}')"><div style="width:38px;height:38px;border-radius:9px;background:linear-gradient(135deg,var(--teal),var(--navy-light));display:flex;align-items:center;justify-content:center;font-weight:800;font-size:.7rem;color:#fff;font-family:var(--ff);flex-shrink:0">${initials(p.firstName+' '+p.lastName)}</div><div style="flex:1;min-width:0"><div style="font-weight:600;font-size:.8rem">${p.firstName} ${p.lastName}</div><div style="font-size:.65rem;color:var(--mid)">${vehicleEmoji(p.vehicle)} · ⭐${(p.rating||5).toFixed(1)}</div></div>${p.lat&&p.lng?`<button class="btn btn-g btn-xs" onclick="event.stopPropagation();_liveMap&&_liveMap.flyTo([${p.lat},${p.lng}],16)">📍</button>`:''}</div>`).join(''):'<div class="empty-state"><div class="ei">😴</div>No partners online</div>';}
 
-// ====== USERS ======
+// ======================================================
+//  USER MANAGEMENT — FULLY FUNCTIONAL
+//  Reads from Firestore 'users' collection (live listener).
+//  Falls back to synthesising customers from orders if empty.
+//  Admin can suspend/restore and open detail modal.
+// ======================================================
+
+function updateUserStats(){
+  // Merge Firestore users + synthesised customers from orders
+  const merged=getMergedUsers();
+  const total=merged.length;
+  const customers=merged.filter(u=>u.type==='customer').length;
+  const vendors=merged.filter(u=>u.type==='vendor').length;
+  const suspended=merged.filter(u=>u.status==='suspended').length;
+  document.getElementById('u-total').textContent=total;
+  document.getElementById('u-customers').textContent=customers;
+  document.getElementById('u-vendors').textContent=vendors;
+  document.getElementById('u-sus').textContent=suspended;
+}
+
+function getMergedUsers(){
+  // Start from Firestore users collection
+  const result=[..._users];
+  const existingIds=new Set(_users.map(u=>u.id));
+  const existingPhones=new Set(_users.map(u=>u.phone||u.phoneNumber).filter(Boolean));
+
+  // Synthesise customer records from orders for any not already in users collection
+  const orderCustomerMap={};
+  _orders.forEach(o=>{
+    const key=o.customerId||o.phone||o.customerName;
+    if(!key) return;
+    if(existingIds.has(key)||existingPhones.has(o.phone)) return;
+    if(!orderCustomerMap[key]){
+      orderCustomerMap[key]={
+        id:key,
+        type:'customer',
+        name:o.customerName||'Unknown',
+        phone:o.phone||'—',
+        email:o.customerEmail||null,
+        address:o.address||null,
+        orders:0,
+        spent:0,
+        status:'active',
+        source:'orders', // synthesised
+        createdAt:o.orderedAt||null
+      };
+    }
+    orderCustomerMap[key].orders++;
+    if(o.status!=='Cancelled') orderCustomerMap[key].spent+=(o.total||0);
+  });
+
+  Object.values(orderCustomerMap).forEach(c=>result.push(c));
+
+  // Also include vendors (from shops) if not already in users
+  _shops.forEach(s=>{
+    if(!existingIds.has(s.id)&&!existingIds.has(s.vendorEmail)){
+      result.push({
+        id:s.id,
+        type:'vendor',
+        name:s.name||'—',
+        phone:s.phone||'—',
+        email:s.vendorEmail||null,
+        address:s.address||null,
+        orders:vendorOrders(s.id).length,
+        spent:vendorRevenue(s.id),
+        status:s.adminStatus==='suspended'?'suspended':'active',
+        source:'shops',
+        createdAt:s.createdAt||null
+      });
+    }
+  });
+
+  return result;
+}
+
 function setUF(f,el){_ufFilter=f;document.querySelectorAll('#panel-users .fc').forEach(c=>c.classList.remove('active'));el?.classList.add('active');renderUsers();}
-function buildCustomers(){const map={};_orders.forEach(o=>{const key=o.phone||o.customerId||o.customerName;if(!key)return;if(!map[key])map[key]={id:key,type:'customer',name:o.customerName||'Unknown',phone:o.phone||'—',orders:0,spent:0,status:'active'};map[key].orders++;if(o.status!=='Cancelled')map[key].spent+=(o.total||0);});return Object.values(map);}
+
 function renderUsers(){
-  const q=(document.getElementById('u-search')?.value||'').toLowerCase();const customers=buildCustomers();const vendorUsers=_shops.map(s=>({id:s.id,type:'vendor',name:s.name||'—',phone:s.phone||'—',email:s.vendorEmail||'—',orders:vendorOrders(s.id).length,spent:vendorRevenue(s.id),status:s.adminStatus||'pending'}));
-  let all=[...(_ufFilter==='vendor'||_ufFilter==='all'?vendorUsers:[]),...(_ufFilter==='customer'||_ufFilter==='all'?customers:[])];
-  if(q)all=all.filter(u=>(u.name+u.phone+(u.email||'')).toLowerCase().includes(q));
-  document.getElementById('u-total').textContent=customers.length+_shops.length;document.getElementById('u-customers').textContent=customers.length;document.getElementById('u-vendors').textContent=_shops.length;document.getElementById('u-sus').textContent=_shops.filter(s=>s.adminStatus==='suspended').length;
-  const tb=document.getElementById('users-tb');if(!all.length){tb.innerHTML='<tr><td colspan="8" class="empty-state">No users found</td></tr>';return;}
-  tb.innerHTML=all.map(u=>`<tr><td><div style="display:flex;align-items:center;gap:8px"><div class="avatar" style="background:${u.type==='vendor'?colorFor(u.id,3):'linear-gradient(135deg,var(--purple),var(--cyan))'};font-size:.68rem;border-radius:${u.type==='vendor'?'8px':'50%'}">${initials(u.name)}</div><div style="font-weight:600;font-size:.8rem">${u.name}</div></div></td><td><span class="pill ${u.type==='vendor'?'orange':'cyan'}">${u.type}</span></td><td style="font-size:.72rem;color:var(--mid)">${u.phone}${u.email?'<br><span style="font-size:.62rem">'+u.email+'</span>':''}</td><td style="font-family:var(--ff);font-weight:700;color:var(--blue-l)">${u.orders}</td><td style="font-family:var(--ff);font-weight:700;color:var(--orange-mid)">${money(u.spent)}</td><td><span class="pill ${u.status==='active'||u.status==='approved'?'green':u.status==='suspended'?'red':'orange'}">${u.status}</span></td><td></td></tr>`).join('');
+  updateUserStats();
+  const q=(document.getElementById('u-search')?.value||'').toLowerCase();
+  let list=getMergedUsers();
+
+  // Apply type filter
+  if(_ufFilter==='customer') list=list.filter(u=>u.type==='customer');
+  else if(_ufFilter==='vendor') list=list.filter(u=>u.type==='vendor');
+  else if(_ufFilter==='suspended') list=list.filter(u=>u.status==='suspended');
+
+  // Apply search
+  if(q) list=list.filter(u=>(u.name+' '+(u.phone||'')+(u.email||'')).toLowerCase().includes(q));
+
+  const tb=document.getElementById('users-tb');
+  if(!list.length){tb.innerHTML=`<tr><td colspan="8"><div class="empty-state"><div class="ei">👤</div>${_users.length===0&&_orders.length===0?'No users yet. Users appear here when they sign up or place orders.':'No users match your search.'}</div></td></tr>`;return;}
+
+  tb.innerHTML=list.map(u=>{
+    const isSuspended=u.status==='suspended';
+    const isVendor=u.type==='vendor';
+    const orderCount=u.orders||0;
+    const spent=u.spent||0;
+    const joined=u.createdAt?fmtD(u.createdAt):'—';
+    const srcTag=u.source==='orders'?`<span title="Synthesised from order history" style="font-size:.56rem;color:var(--dim)">📋 from orders</span>`:u.source==='shops'?`<span title="Vendor record" style="font-size:.56rem;color:var(--dim)">🏪 vendor</span>`:'';
+
+    return `<tr>
+      <td>
+        <div style="display:flex;align-items:center;gap:8px">
+          <div class="avatar" style="background:${isVendor?colorFor(u.id,3):'linear-gradient(135deg,var(--purple),var(--cyan))'};font-size:.68rem;border-radius:${isVendor?'8px':'50%'};opacity:${isSuspended?.55:1}">
+            ${initials(u.name)}
+          </div>
+          <div>
+            <div style="font-weight:600;font-size:.8rem;${isSuspended?'text-decoration:line-through;color:var(--mid)':''}">${escHtml(u.name)}</div>
+            ${srcTag}
+          </div>
+        </div>
+      </td>
+      <td><span class="pill ${isVendor?'orange':'cyan'}">${u.type||'customer'}</span></td>
+      <td style="font-size:.72rem">
+        <div style="color:var(--white)">${escHtml(u.phone||'—')}</div>
+        ${u.email?`<div style="font-size:.6rem;color:var(--mid);margin-top:1px">${escHtml(u.email)}</div>`:''}
+      </td>
+      <td style="font-family:var(--ff);font-weight:700;color:var(--blue-l);text-align:center">${orderCount}</td>
+      <td style="font-family:var(--ff);font-weight:700;color:var(--orange-mid)">${money(spent)}</td>
+      <td style="font-size:.7rem;color:var(--mid)">${joined}</td>
+      <td><span class="pill ${isSuspended?'red':'green'}">${isSuspended?'🚫 Suspended':'✓ Active'}</span></td>
+      <td>
+        <div style="display:flex;gap:5px;align-items:center">
+          <button class="btn btn-g btn-xs" onclick="openUserModal('${u.id}')">👁 View</button>
+          ${u.source!=='orders'&&u.source!=='shops'?
+            isSuspended
+              ? `<button class="btn btn-s btn-xs" onclick="setUserStatus('${u.id}','active')">↩ Restore</button>`
+              : `<button class="btn btn-xs" style="background:var(--red-pale);color:var(--red);border:1px solid var(--red)" onclick="setUserStatus('${u.id}','suspended')">🚫 Suspend</button>`
+            : isVendor
+              ? isSuspended
+                ? `<button class="btn btn-s btn-xs" onclick="approveShop('${u.id}')">↩ Restore</button>`
+                : `<button class="btn btn-xs" style="background:var(--red-pale);color:var(--red);border:1px solid var(--red)" onclick="changeShopStatus('${u.id}','suspended')">🚫 Suspend</button>`
+              : ''
+          }
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function setUserStatus(userId,status){
+  C.users().doc(userId).update({status,updatedAt:now(),updatedBy:'admin'})
+    .then(()=>{toast(status==='suspended'?'🚫 User suspended':'✅ User restored',status==='suspended'?'warn':'ok');})
+    .catch(e=>toast('Error: '+e.message,'err'));
+}
+
+function openUserModal(userId){
+  const merged=getMergedUsers();
+  const u=merged.find(x=>x.id===userId);
+  if(!u)return;
+
+  const userOrders=u.type==='vendor'
+    ? vendorOrders(u.id)
+    : _orders.filter(o=>(o.customerId===u.id)||(u.phone&&o.phone===u.phone)||(u.name&&o.customerName===u.name));
+
+  const spent=userOrders.filter(o=>o.status!=='Cancelled').reduce((s,o)=>s+(o.total||0),0);
+  const isSuspended=u.status==='suspended';
+
+  document.getElementById('mu-name').textContent=u.name||'—';
+  document.getElementById('mu-sub').textContent=`${u.type==='vendor'?'🏪 Vendor':'👤 Customer'} · ${u.phone||'No phone'} · ${u.email||'No email'}`;
+
+  const recentOrders=userOrders.slice(0,5);
+  document.getElementById('mu-body').innerHTML=`
+    <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap">
+      <div class="user-modal-stat"><div class="umv" style="color:var(--orange-mid)">${userOrders.length}</div><div class="uml">Total Orders</div></div>
+      <div class="user-modal-stat"><div class="umv" style="color:var(--green)">${money(spent)}</div><div class="uml">Total Spent</div></div>
+      <div class="user-modal-stat"><div class="umv" style="color:var(--cyan)">${fmtD(u.createdAt||null)}</div><div class="uml">Joined</div></div>
+      <div class="user-modal-stat"><div class="umv" style="color:${isSuspended?'var(--red)':'var(--green)'}">${isSuspended?'🚫 Suspended':'✓ Active'}</div><div class="uml">Status</div></div>
+    </div>
+    ${u.address?`<div style="background:var(--bg3);border-radius:9px;padding:10px 13px;font-size:.74rem;margin-bottom:12px;border:1px solid var(--border)">📍 ${escHtml(u.address)}</div>`:''}
+    <div style="margin-bottom:10px">
+      <div style="font-family:var(--ff);font-size:.65rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--mid);margin-bottom:8px">Recent Orders</div>
+      ${recentOrders.length?recentOrders.map(o=>`
+        <div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border)">
+          <div style="flex:1;font-size:.78rem;font-weight:600">${o.productName||'—'}</div>
+          <span class="pill ${STATUS_PILL[o.status]||'dim'}">${o.status||'—'}</span>
+          <div style="font-family:var(--ff);font-size:.76rem;font-weight:700;color:var(--orange-mid)">${money(o.total)}</div>
+        </div>`).join('')
+      :'<div style="font-size:.76rem;color:var(--mid);padding:8px 0">No orders found</div>'}
+    </div>
+    <div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap">
+      ${u.source!=='orders'&&u.source!=='shops'?
+        isSuspended
+          ? `<button class="btn btn-s btn-sm" onclick="setUserStatus('${u.id}','active');closeM('mo-user')">↩ Restore Access</button>`
+          : `<button class="btn btn-d btn-sm" onclick="setUserStatus('${u.id}','suspended');closeM('mo-user')">🚫 Suspend User</button>`
+        : u.type==='vendor'?
+          isSuspended
+            ? `<button class="btn btn-s btn-sm" onclick="approveShop('${u.id}');closeM('mo-user')">↩ Restore Vendor</button>`
+            : `<button class="btn btn-d btn-sm" onclick="changeShopStatus('${u.id}','suspended');closeM('mo-user')">🚫 Suspend Vendor</button>`
+          : '<span style="font-size:.72rem;color:var(--mid)">Customer record — suspend/restore via Vendor Approvals if needed</span>'
+      }
+      <button class="btn btn-g btn-sm" onclick="closeM('mo-user')">Close</button>
+    </div>`;
+
+  document.getElementById('mo-user').classList.add('show');
+}
+
+function exportUsers(){
+  const merged=getMergedUsers();
+  if(!merged.length){toast('No users to export','warn');return;}
+  const headers=['Name','Type','Phone','Email','Orders','Spent (₹)','Status','Joined'];
+  const rows=merged.map(u=>[
+    u.name||'',u.type||'customer',u.phone||'',u.email||'',
+    u.orders||0,u.spent||0,u.status||'active',u.createdAt?new Date(u.createdAt).toLocaleDateString('en-IN'):''
+  ]);
+  const csv=[headers,...rows].map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob=new Blob([csv],{type:'text/csv'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`localshore_users_${new Date().toISOString().slice(0,10)}.csv`;a.click();
+  toast('✅ CSV exported!');
 }
 
 // ====== ORDERS ======
